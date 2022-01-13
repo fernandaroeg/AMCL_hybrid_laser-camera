@@ -9,6 +9,7 @@ project(laser_data_adapter)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
