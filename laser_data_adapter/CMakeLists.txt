@@ -10,6 +10,10 @@ project(laser_data_adapter)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
+  rosbag
+  tf2_msgs
+  geometry_msgs
+  tf
 )
 
 ## System dependencies are found with CMake's conventions
