@@ -13,6 +13,7 @@ import numpy as np
 
 #### 0. Parameter Setup ####
 scenario = "alma"
+bag_name = 'odometry_data'
 var_x = 0.00001 # covariance in x, value taken from turtlebot sim in gazebo
 var_y = 0.00001 # covariance in y, value taken from turtlebot sim in gazebo
 var_theta = 0.001 # covariance in z/yaw, value taken from turtlebot sim in gazebo
@@ -100,15 +101,16 @@ def add_gaussian_nose(prev_x, prev_y, prev_theta, x,y,theta, var_x, var_y, var_t
     
     return odom_now_noise_x, odom_now_noise_y, odom_now_noise_theta
     
- #### 3. Function to create TF odometry data !!!!checar que coincide con funcin de Paloma ####
-def create_TFmsg(x, y, theta, t, seq):
+ #### 3. Function to create TF odometry data
+def create_TFmsg(x, y, z, theta, frame, child_frame, t, seq):
     trans = TransformStamped()
     trans.header.seq = seq
     trans.header.stamp = t
-    trans.header.frame_id = '/world'
-    trans.child_frame_id = '/odom'
+    trans.header.frame_id = frame
+    trans.child_frame_id = child_frame
     trans.transform.translation.x = x
     trans.transform.translation.y = y
+    trans.transform.translation.z = z
     q = tf.transformations.quaternion_from_euler(0,0,theta)
     trans.transform.rotation.x = q[0]
     trans.transform.rotation.y = q[1]
@@ -120,7 +122,7 @@ def create_TFmsg(x, y, theta, t, seq):
     
 ##### 4. Open bag file to write Odometry data in it ####
 #List names with data to write from groundtruth: poseX, poseY, poseTheta, tstamp
-bag = rosbag.Bag('odometry_data_'+scenario+'.bag', 'w')
+bag = rosbag.Bag(bag_name+'_'+scenario+'.bag', 'w')
 
 odometry_msg = Odometry()
 for i in range(0,len(poseX)):
@@ -172,14 +174,20 @@ for i in range(0,len(poseX)):
         vx= dx/dt
         vy= dy/dt
         vth = dyaw/dt
+        print vx, vy, vth
     odometry_msg.twist.twist = Twist(Vector3(vx, vy, 0),  Vector3(0, 0, vth) )
     
     #Odometry source must publish info. about the TF frame it manages, call function to generate TF odom data msg
-    odom_tf_data = create_TFmsg(odom_now_noise_x, odom_now_noise_y, odom_now_noise_theta,tstamp[i], i)
+    odom_base_link_tf = create_TFmsg(0,0,0,0, "/odom", "/base_link",tstamp[i], i)
+    #Create additional TF msgs
+    map_odom_tf          = create_TFmsg(odom_now_noise_x, odom_now_noise_y, -0.1, odom_now_noise_theta, "/map", "/odom",tstamp[i], i)
+    world_map_tf          = create_TFmsg(0,0,0,0,"/world", "/map", tstamp[i], i)
  
     #Write data to bag
     bag.write("/odom", odometry_msg, tstamp[i])
-    bag.write("/tf", odom_tf_data, tstamp[i])
+    bag.write("/tf", odom_base_link_tf, tstamp[i])
+    bag.write("/tf", map_odom_tf, tstamp[i])
+    bag.write("/tf", world_map_tf, tstamp[i])
     
 bag.close() #export rosbag file to /home/user/.ros 
  
