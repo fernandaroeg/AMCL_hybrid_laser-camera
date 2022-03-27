@@ -17,9 +17,9 @@ bag_name = 'odometry_data'
 var_x = 0.00001 # covariance in x, value taken from turtlebot sim in gazebo
 var_y = 0.00001 # covariance in y, value taken from turtlebot sim in gazebo
 var_theta = 0.001 # covariance in z/yaw, value taken from turtlebot sim in gazebo
-noise_range_x = 0.01 #1cm expressed in meters
-noise_range_y = 0.01 #1cm expressed in meters
-noise_range_theta = 0.0017 #0.1 degreed expressed in radians
+noise_range_x = 0.0#0.01 #1cm expressed in meters
+noise_range_y = 0.0#0.01 #1cm expressed in meters
+noise_range_theta = 0.0#0.0017 #0.1 degreed expressed in radians
 
 #### 1.a Read bag file with 2D pose data created by laser-scan-matcher ####
 bag = rosbag.Bag('/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/odometry_data_adapter_node/data/alma_laser_scan_output.bag')
@@ -123,6 +123,8 @@ def create_TFmsg(x, y, z, theta, frame, child_frame, t, seq):
 ##### 4. Open bag file to write Odometry data in it ####
 #List names with data to write from groundtruth: poseX, poseY, poseTheta, tstamp
 bag = rosbag.Bag(bag_name+'_'+scenario+'.bag', 'w')
+file = open('odom_debug.txt', 'w') #create debugging txt file
+    
 
 odometry_msg = Odometry()
 for i in range(0,len(poseX)):
@@ -160,6 +162,12 @@ for i in range(0,len(poseX)):
     odometry_msg.pose.covariance[28]  = 99999 #covariance in roll, not used 
     odometry_msg.pose.covariance[35] = var_theta # covariance in z/yaw, value taken from turtlebot sim in gazebo
     
+    #Export generated odom for debugging purposes
+    file.write(str(odom_now_noise_x))
+    file.write(' ')
+    file.write(str(odom_now_noise_y))
+    file.write('\n')
+    
     #Twist with covariance msg data, velocity in the robot is constant , 0.1m/s, so no need to express covariance in velocity (Twist msg)       
     dx =      current_x - prev_x
     dy =      current_y - prev_y
@@ -181,7 +189,8 @@ for i in range(0,len(poseX)):
     odom_base_link_tf = create_TFmsg(0,0,0,0, "/odom", "/base_link",tstamp[i], i)
     #Create additional TF msgs
     map_odom_tf          = create_TFmsg(odom_now_noise_x, odom_now_noise_y, -0.1, odom_now_noise_theta, "/map", "/odom",tstamp[i], i)
-    world_map_tf          = create_TFmsg(0,0,0,0,"/world", "/map", tstamp[i], i)
+ #   world_map_tf          = create_TFmsg(0.000602, 0.002559, 0.0, -0.002202, "/world", "/map",tstamp[i], i)
+    world_map_tf          = create_TFmsg(0.0, 0.0, 0.0, 0.0, "/world", "/map",tstamp[i], i)
  
     #Write data to bag
     bag.write("/odom", odometry_msg, tstamp[i])
@@ -190,6 +199,7 @@ for i in range(0,len(poseX)):
     bag.write("/tf", world_map_tf, tstamp[i])
     
 bag.close() #export rosbag file to /home/user/.ros 
+file.close() #close debugging txt file
  
 # #####4. Open bag file to write Odometry data in it --Scan-matcher data
 # scenario = "alma" #!!!!! get this data from launch file
