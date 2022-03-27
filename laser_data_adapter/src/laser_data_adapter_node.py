@@ -46,7 +46,7 @@ def fill_laser_msg(laser_values, num_txt_file, num_readings, t):
     laser_msg = LaserScan()
     laser_msg.header.seq = num_txt_file
     laser_msg.header.stamp = t
-    laser_msg.header.frame_id = 'laser_link' #static frame defined in launch file
+    laser_msg.header.frame_id = '/laser' #transform frame name
     laser_msg.angle_min = -120.0 / 180.0 * pi #120 is min/max range, taken from the datasheet
     laser_msg.angle_max = 120.0 / 180.0 * pi
     laser_msg.angle_increment = pi / num_readings
@@ -57,16 +57,17 @@ def fill_laser_msg(laser_values, num_txt_file, num_readings, t):
     laser_msg.ranges = laser_values
     return laser_msg
     
- #5. Function to create virtual odometry data from estimated path in logs
- #########cambiar estructura para que no sea plagio!!!!!!!!!!
-def make_tf_msg(x, y, theta, t):
+ #5. Function to create TF data for laser frame
+def laser_tf_msg(seq, t):
     trans = TransformStamped()
+    trans.header.seq = seq
     trans.header.stamp = t
-    trans.header.frame_id = '/map'
-    trans.child_frame_id = '/odom'
-    trans.transform.translation.x = x
-    trans.transform.translation.y = y
-    q = tf.transformations.quaternion_from_euler(0,0,theta)
+    trans.header.frame_id = '/base_link'
+    trans.child_frame_id = '/laser'
+    trans.transform.translation.x = 0.205 #laser position in m, taken from dataset paper
+    trans.transform.translation.y = 0.0
+    trans.transform.translation.z = 0.31
+    q = tf.transformations.quaternion_from_euler(0,0,0)
     trans.transform.rotation.x = q[0]
     trans.transform.rotation.y = q[1]
     trans.transform.rotation.z = q[2]
@@ -75,7 +76,7 @@ def make_tf_msg(x, y, theta, t):
     msg.transforms.append(trans)
     return msg
     
-#6. definir funcion/ciclo for para poner timestamps en lista.... Extract timestamp data from laser log file
+#6. Logic to put timestamp data in list format and transform from TTimeStamp format to unix epoch
 with open(file_laser_tstamps,'r') as tstamps_file:
     tstamp_file= tstamps_file.readlines()
     #print "The num of lines in the tstamp file is", len(tstamp_file) #first four lines are not relevant just header data
@@ -90,12 +91,7 @@ with open(file_laser_tstamps,'r') as tstamps_file:
         ros_nsecs =  (mrpt_tstamp % 10000000) * 100
         tstamp[item]=rospy.Time(ros_secs,ros_nsecs)#turning the timestamp values to timestamp object
         
-print "la lista de tstamps transformada es de tipo", type(tstamp), "sus elementos son de tipo ", type(tstamp[0])
-print "el primer elemento es ", tstamp[0]
         
-print "La lista con valores de tstamp tiene", len(tstamp), " elementos y es tipo ", type(tstamp)
-print "Los elementos de la lista son tipo ", type(tstamp[0]), "el 1er elemento es ", tstamp[0]
-
 #7. Lo mismo que el paso 6 pero para crear lista con datos de estimated path x,y,theta
 with open(file_odom,'r') as odom_file:
     odom_file = odom_file.readlines()
@@ -128,11 +124,9 @@ for file in range(num_files):
         num_scans = len(range_values)
         print "There are ", num_scans, "scanner readings in txt file", file
         laser_msg = fill_laser_msg(range_values,file,num_scans, tstamp[file])  #call function to fill laser data
-        odom_tf_data = make_tf_msg(x[file],y[file],theta[file],tstamp[file])#call function to generate TF odom data
+        tf_data = laser_tf_msg(file,tstamp[file])#call function to generate TF laser data
+    bag.write("/tf", tf_data, tstamp[file])
     bag.write("/scan", laser_msg, tstamp[file])
-    bag.write("/tf", odom_tf_data, tstamp[file])
+
 
 bag.close() #export rosbag file to /home/user/.ros 
-
-
-
