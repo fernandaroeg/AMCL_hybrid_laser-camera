@@ -1,0 +1,4 @@
+<launch>	
+    <node pkg="odometry_data_adapter_node" type="g_truth_bag_markers.py" name="g_truth_bag_markers" output="screen">
+    </node>
+</launch>
