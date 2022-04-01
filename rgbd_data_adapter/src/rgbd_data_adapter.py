@@ -18,16 +18,18 @@
 import os
 import rospy
 import rosbag
-from sensor_msgs.msg import Image, CameraInfo, PointCloud2
+import numpy as np
+import time
+import cv2
+from cv_bridge import CvBridge
+import std_msgs.msg
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2, PointField
+from sensor_msgs import point_cloud2
 from tf2_msgs.msg import TFMessage 
 from geometry_msgs.msg import TransformStamped
 import tf
-import cv2
-from cv_bridge import CvBridge
-import numpy as np
-import time
-import rospkg
-import std_msgs.msg
+import struct
+import ctypes
 
 ####CONFIGURABLE PARAMETERS####
 scenario = "alma" #get this data from launch file
@@ -179,52 +181,60 @@ def fill_image_msg(img_path, seq, t):
     # cam_info.RegionsOfInterest = 
         
 #Function to populate point cloud message
-# def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
-    # cv_img = cv2.imread(img_path)     #Use CVbridge to convert image in given path to ros img msg
-    # cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
-    # height, width = cv_img.shape[:2]
+def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
+    #Image pre-processing
+    cv_img = cv2.imread(img_path)     #Use CVbridge to convert image in given path to ros img msg
+    cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
+    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY) #reduce rgb dimension to grayscale
+    height, width = cv_img.shape[:2]
+        
+    # Extract x,y,z data from depth image. Equations taken from dataset webpage
+    points= []
+    for u in range(0,width):
+        for v in range (0, height):
+            depth = cv_img[v][u] * (1/553.5) # read each single pixel in image
+            x = depth
+            y = (cx- u) * x/fx 
+            z = (cy- v) * x/fy  #CONFIRMAR, como rote la img tal vez van al reves las formulas
+            x = float(x)
+            y = float(y)
+            z = float(z)
+            points.append([x,y,z])
     
-    # pointcloud = PointCloud2()
-    
-    # header = std_msgs.msg.Header()
-    # header.stamp = t
-    # header.seq = seq
-    # header.frame_id =  '/camera/RGB/CameraInfo'
-    
-    # # pointcloud.height = height
-    # # pointcloud.width = width
-    # # pointcloud.is_bigendian = False #CONFIRMAR assumption
-    # # pointcloud.is_dense = True #True if there are no invalid points
-    # # pointcloud.point_step = 24 #CONFIRMAR, length of a point in bytes
-    # # pointcloud.row_step = pointcloud.point_step * width # length of a row in bytes
-    # # # sensor_msgs/PointField []
-    # # # uint8 [] data #list  of points encoded as byte stream, each point is a struct
-    
-    # # Extract x,y,z data from depth image. Equations taken from dataset webpage
-    # point = [[],[],[]]
-    # points_list = []
-    # for v in range(0,height):
-        # for u in range (0, width):
-            # print "DEBUG", type(cv_img[u][v])
-            # print "DEBUG", cv_img[u][v]
-            # print "DEBUG u is", u
-            # print "DEBUG v is", v
-            # #print cv_img
+    #Convert data to binary blob
+    fields = [  PointField( 'x', 0, PointField.FLOAT32, 1),
+                    PointField( 'y', 4, PointField.FLOAT32, 1),
+                    PointField( 'z', 8, PointField.FLOAT32, 1)]
             
-            # depth = cv_img[u][v] * (1/6,553.5) # read each single pixel in image
-            # x = depth
-            # y = (cx- u) * x/fx 
-            # z = (cy- v) * x/fy  #CONFIRMAR, como rote la img tal vez van al reves las formulas
-            # point[0].append(x)
-            # point[1].append(y)
-            # point[2].append(z)
-            # points_list.append(point)
-            
-    # pointcloud2msg = pointcloud.create_cloud_xyz32(header, points)
-    
-    # return pointcloud2msg
+    cloud_struct = struct.Struct('<fff') #creating a struct instance to store data in bytes
+                                                             #storing order: '<' little endian
+                                                             #content to be stored: x (float), y (float), z (float) - fff
+                                                        
+    buff = ctypes.create_string_buffer(cloud_struct.size * len(points))
+    point_step, pack_into = cloud_struct.size, cloud_struct.pack_into
+    offset = 0
+    for p in points:
+        pack_into(buff, offset, *p) 
+        offset += point_step
+   
+   #Fill pointcloud message
+    pointcloud = PointCloud2()
+    header = std_msgs.msg.Header()
+    header.stamp = t
+    header.seq = seq
+    header.frame_id =  '/PointCloud' 
+    pointcloud.header = header
+    pointcloud.height = height
+    pointcloud.width = width
+    pointcloud.is_dense = True #True if there are no invalid points
+    pointcloud.is_bigendian = False
+    pointcloud.fields = fields
+    pointcloud.point_step = cloud_struct.size
+    pointcloud.row_step = cloud_struct.size * len(points)
+    pointcloud.data = buff.raw
+        
+    return pointcloud
          
-
 
  #Function to create TF odometry data
 def create_TFmsg(x, y, z, roll, pitch, yaw, frame, child_frame, t, seq):
@@ -250,7 +260,6 @@ def create_TFmsg(x, y, z, roll, pitch, yaw, frame, child_frame, t, seq):
 bag = rosbag.Bag('rgbd_data_'+scenario+'.bag', 'w') # Open bag file to write data in it 
 bridge = CvBridge()
 
-
 for i in range(0,len(RGB_id1_file_name[0])):
 
     img_path = path_imgs + RGB_id1_file_name[0][i]   
@@ -261,17 +270,17 @@ for i in range(0,len(RGB_id1_file_name[0])):
     img_msg = fill_image_msg(img_path, i, tstamp_rgb1)
     
     #PointCloud message
-    #pointcloud_msg = fill_pointcloud_msg(dep_path, cx, cy, fx, fy, i, tstamp_rgb1)
+    pointcloud_msg = fill_pointcloud_msg(dep_path, cx, cy, fx, fy, i, tstamp_rgb1)
    
     #Calibration camera message 
     
     #TF data 
     tf_data = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/camera/RGB/Image', tstamp_rgb1, i)
-    #AGREGAR topic del pointcloud
+    tf_data = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/PointCloud', tstamp_rgb1, i)
      
     #Write data in bag
     bag.write('/camera/RGB/Image', img_msg, tstamp_rgb1)
-    #bag.write('/camera/RGB/PointCloud', pointcloud_msg, tstamp_rgb1) #CONFIRMAR nombre del topic
+    bag.write('/PointCloud', pointcloud_msg, tstamp_rgb1) #CONFIRMAR nombre del topic
     bag.write('/tf', tf_data, tstamp_rgb1)
     
 bag.close()
