@@ -1,0 +1,4 @@
+<launch>	
+    <node pkg="odom_data_adapter" type="odom_data_adapter" name="odom_data_adapter" output="screen">
+    </node>
+</launch>
