@@ -1,0 +1,35 @@
+<launch>	
+	<master auto="start"/>
+	
+	<!-- Set simulation time to synchronize rosbag files-->
+	<param name="/use_sim_time" type="bool" value="true"/>
+	
+	<!-- Map Server -->
+	<arg name="map_file" default="$(find odom_data_adapter)/maps/map.simplemap"/>
+	<node name="map_server" pkg="mrpt_map" type="map_server_node" />
+	<!-- node name="map_server" pkg="mrpt_map" type="map_server_node" args="$(arg map_file)" -->
+	
+	<!-- Place map frame at odometry frame -->
+	<node pkg="tf" type="static_transform_publisher" name="map_odom_broadcaster" args="10.020 9 0 0 0 0 map odom 100" />
+	
+	<!-- Launch Odom_adapter_node -->
+	<node pkg="odom_data_adapter" type="odom_data_adapter" name="odom_data_adapter" output="screen">
+    </node>
+	
+	<!-- Launch AMCL -->
+	<node pkg="amcl" type="amcl" name="amcl" output="screen">
+		<param name="odom_frame_id" value="odom" />
+		<param name="odom_model_type" value="diff-corrected" />
+		<param name="base_frame_id" value="base_link" />
+		<param name="update_min_d" value="0.5" />
+		<param name="update_min_a" value="0.1" />
+	</node>
+	
+	<!-- Play laser and groundtruth rosbags -->
+	<arg name="path" default="/home/fer/.ros/"/>
+	<arg name="file1" default="laser_data_alma"/>
+	<arg name="file2" default="g_truth_path_markers_alma"/>
+	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file1).bag $(arg path)$(arg file2).bag" />
+    
+	
+</launch>
