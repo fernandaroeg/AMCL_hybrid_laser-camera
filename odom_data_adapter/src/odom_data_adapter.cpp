@@ -107,29 +107,24 @@ int main(int argc, char **argv)
 	
 	//Declare publishers and suscriber
 	ros::Subscriber sub = nh.subscribe("g_truth/Pose", 1000, poseCallback);
-	ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 50);
-	ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("trajectory",50);
-	ros::Publisher path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",50);
+	ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 1000); //PENDING antes estaba en 50
+	ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("trajectory",1000);
+	ros::Publisher path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);
 	tf::TransformBroadcaster odom_broadcaster;
 	
 	//Get current time in variable
 	ros::Time current_time;
-	current_time = ros::Time::now();
 	
 	//Declare path messages
-	nav_msgs::Path path;
-	path.header.stamp = current_time;
-	path.header.frame_id = "odom";
-	
+	nav_msgs::Path path;	
 	nav_msgs::Path groundtruth_path;
-	groundtruth_path.header.stamp = current_time;
-	groundtruth_path.header.frame_id = "odom";
 	
 	//Node frequency
-	ros::Rate r(1.0);
+	ros::Rate r(10.0);
 	
 	while(nh.ok()){
 		ros::spinOnce();  //check for incoming messages
+		current_time = ros::Time::now(); //get current time
 		
 		//Determine current and previous poses
 		if (first_pose_received == true)
@@ -192,6 +187,9 @@ int main(int argc, char **argv)
 		odom_pose_stamped.header.stamp     = current_time;
 		odom_pose_stamped.header.frame_id  = "odom";
 		path.poses.push_back(odom_pose_stamped);
+		path.header.stamp = current_time;
+		path.header.frame_id = "odom";
+		path_pub.publish(path);
 		
 		//create path msg w/ground truth information
 		geometry_msgs::PoseStamped groundtruth_pose_stamped;
@@ -201,8 +199,8 @@ int main(int argc, char **argv)
 		groundtruth_pose_stamped.header.stamp     = current_time;
 		groundtruth_pose_stamped.header.frame_id  = "g_truth";
 		groundtruth_path.poses.push_back(groundtruth_pose_stamped);
-		
-		path_pub.publish(path);
+		groundtruth_path.header.stamp = current_time;
+		groundtruth_path.header.frame_id = "odom";
 		path_pub_gtruth.publish(groundtruth_path);
 		
 		first_pose_received = false; //change flag for subsequent readings
