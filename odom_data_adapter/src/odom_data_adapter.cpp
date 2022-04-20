@@ -8,7 +8,7 @@
 #include<tf/transform_broadcaster.h>
 #include<string>
 #include<math.h>
-//#include<random> PENDING
+#include<random>
 
 //PARAMETER SETUP
 float var_x = 0.00001;  //covariance in x, value taken from turtlebot sim in gazebo
@@ -17,11 +17,21 @@ float var_theta = 0.01; //covariance in z/yaw, value taken from turtlebot sim in
 float noise_range_x = 0.01; //1cm expressed in meters
 float noise_range_y = 0.01; //1cm expressed in meters
 float noise_range_theta = 0.17; //0.1 degreed expressed in radians
+
+// float var_x = 0.01;  //covariance in x
+// float var_y = 0.01;  //covariance in y
+// float var_theta = 0.00028; //covariance in z/yaw
+// float noise_range_x = 0.1; //10cm expressed in meters
+// float noise_range_y = 0.1; //10cm expressed in meters
+// float noise_range_theta = 0.017; //1 degreed expressed in radians
 	
 //GLOBAL VARIABLES
 float x;
 float y;
 float theta;
+float x_odom;
+float y_odom;
+float theta_odom;
 bool first_pose_received = true;
 
 //STRUCTURES
@@ -53,28 +63,45 @@ pose oplus(pose *pose1, pose *pose2)
 	return oplus;
 }
 
+pose ominus(pose *pose1)
+{
+	pose ominus;
+	
+	ominus.x     = -(pose1->x * cos(pose1->theta)) - ( pose1->y * sin(pose1->theta) );
+	ominus.y     =  (pose1->x * sin(pose1->theta)) - ( pose1->y * cos(pose1->theta) );
+	ominus.theta = -(pose1->theta); 
+		
+	return ominus;
+}
+
 pose add_gaussian_noise(pose *pose_prev, pose *pose_now, pose *var, pose *noise)
 {
 	pose increment;
 	pose increment_w_noise;
 	pose pose_w_noise;
+	pose pose_prev_inv;
 	
 	//Compute the position increment
+	// pose_prev_inv = ominus(pose_prev);
+	// increment.x     = pose_now->x     - pose_prev_inv.x;
+	// increment.y     = pose_now->y     - pose_prev_inv.y;
+	// increment.theta = pose_now->theta - pose_prev_inv.theta;
+	
 	increment.x     = pose_now->x     - pose_prev->x;
 	increment.y     = pose_now->y     - pose_prev->y;
 	increment.theta = pose_now->theta - pose_prev->theta;
 	
-	//Create random numbers from normal distribution with range noise PENDING
+	//Create random numbers from normal distribution with range noise
+	std::default_random_engine generator;
+	std::normal_distribution<double> distribution(/*mean*/ 0.0, /*std_dev*/ 1.0);
+	double random_number = distribution(generator);
 	
 	//Add the gaussian noise to the current position increment
-	increment_w_noise.x     = increment.x     + ( sqrt(var->x)     * noise->x);
-	increment_w_noise.y     = increment.y     + ( sqrt(var->y )    * noise->y);
-	increment_w_noise.theta = increment.theta + ( sqrt(var->theta) * noise->theta);
-	// increment_w_noise.x     = increment.x     + ( sqrt(var->x)     * rand_x(gen)     );
-	// increment_w_noise.y     = increment.y     + ( sqrt(var->y )    * rand_y(gen)     );
-	// increment_w_noise.theta = increment.theta + ( sqrt(var->theta) * rand_theta(gen) );
+	increment_w_noise.x     = increment.x     + ( sqrt(var->x)     * random_number);
+	increment_w_noise.y     = increment.y     + ( sqrt(var->y )    * random_number);
+	increment_w_noise.theta = increment.theta + ( sqrt(var->theta) * random_number);
 	
-	pose *increment_w_noise_ptr = &increment_w_noise; //we all hate pointers
+	pose *increment_w_noise_ptr = &increment_w_noise;
 	
     //Add error in the increment to the latest pose, this error is in a new ref.frame due to drift
     //To add this error to the latest pose in another ref.frame the rel. tranfsm. oplus is used
@@ -95,7 +122,20 @@ void poseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
 	theta = yaw;
-	ROS_INFO("%f", theta);
+	//ROS_INFO("%f", theta);
+}
+
+void odom_poseCallback(const geometry_msgs::PoseStamped::ConstPtr &odom_msg) {
+	x_odom = odom_msg -> pose.position.x;
+	y_odom = odom_msg -> pose.position.y;
+	tf::Quaternion q( odom_msg->pose.orientation.x,
+					  odom_msg->pose.orientation.y,
+					  odom_msg->pose.orientation.z,
+					  odom_msg->pose.orientation.w);
+	tf::Matrix3x3 m(q);
+	double roll, pitch, yaw;
+	m.getRPY(roll, pitch, yaw);
+	theta_odom = yaw;
 }
 
 //MAIN PROGRAM
@@ -106,8 +146,9 @@ int main(int argc, char **argv)
 	ros::NodeHandle nh;
 	
 	//Declare publishers and suscriber
-	ros::Subscriber sub = nh.subscribe("g_truth/Pose", 1000, poseCallback);
-	ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 1000); //PENDING antes estaba en 50
+	ros::Subscriber sub      = nh.subscribe("g_truth/Pose", 1000, poseCallback);
+	ros::Subscriber odom_sub = nh.subscribe("odom", 1000, odom_poseCallback);
+	ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 1000); 
 	ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("trajectory",1000);
 	ros::Publisher path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);
 	tf::TransformBroadcaster odom_broadcaster;
@@ -135,9 +176,9 @@ int main(int argc, char **argv)
 			}
 		else
 			{
-				//pose_prev.x     = odom_w_noise.x;
-				//pose_prev.y     = odom_w_noise.y;
-				//pose_prev.theta = odom_w_noise.theta;
+				// pose_prev.x     = x_odom; //previous pose published in odom topic w/noise injected
+				// pose_prev.y     = y_odom;
+				// pose_prev.theta = theta_odom;
 				
 				pose_prev.x     = pose_now.x;
 				pose_prev.y     = pose_now.y;
