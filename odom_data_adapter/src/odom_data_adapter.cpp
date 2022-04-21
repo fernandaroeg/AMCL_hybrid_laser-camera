@@ -11,14 +11,11 @@
 #include<random>
 
 //PARAMETER SETUP
-float var_x = 0.001;  //variance in x, value taken from turtlebot sim in gazebo
-float var_y = 0.001;  //variance in y, value taken from turtlebot sim in gazebo
+float var_x     = 0.001;  //variance in x, value taken from turtlebot sim in gazebo
+float var_y     = 0.001;  //variance in y, value taken from turtlebot sim in gazebo
 float var_theta = 0.0076; //variance in z/yaw, value taken from turtlebot sim in gazebo
-float noise_range_x = 0.01; //1cm expressed in meters
-float noise_range_y = 0.01; //1cm expressed in meters
-float noise_range_theta = 0.17; //0.1 degreed expressed in radians
 
-// float var_x = 0.01;  //covariance in x
+// float var_x u= 0.01;  //covariance in x
 // float var_y = 0.01;  //covariance in y
 // float var_theta = 0.00028; //covariance in z/yaw
 // float noise_range_x = 0.1; //10cm expressed in meters
@@ -34,47 +31,39 @@ float y_odom;
 float theta_odom;
 bool  first_pose_received = true;
 
-//STRUCTURES
-struct pose{float x;
-			float y;
-			float theta;
-			};
-
-struct pose var          = {var_x, var_y, var_theta};
-struct pose noise        = {noise_range_x, noise_range_y, noise_range_theta};
-struct pose pose_now;
-struct pose pose_prev;
-struct pose odom_w_noise;
+geometry_msgs::Pose pose_now;
+geometry_msgs::Pose pose_prev;
+geometry_msgs::Pose odom_w_noise;
 
 //FUNCTIONS DEFINITIONS
-pose oplus(pose pose1, pose pose2)
+geometry_msgs::Pose oplus(geometry_msgs::Pose pose1, geometry_msgs::Pose pose2)
 {
-	pose oplus;
+	geometry_msgs::Pose oplus;
 	
-	oplus.x     = pose1.x + (pose2.x * cos(pose1.theta)) - ( pose2.y * sin(pose1.theta) );
-	oplus.y     = pose1.y + (pose2.x * sin(pose1.theta)) + ( pose2.y * cos(pose1.theta) );
-	oplus.theta = pose1.theta + pose2.theta; //verificar si no hace falta un modulo aqui PENDING
+	oplus.position.x     = pose1.position.x + (pose2.position.x * cos(pose1.orientation.w)) - ( pose2.position.y * sin(pose1.orientation.w) );
+	oplus.position.y     = pose1.position.y + (pose2.position.x * sin(pose1.orientation.w)) + ( pose2.position.y * cos(pose1.orientation.w) );
+	oplus.orientation.w  = pose1.orientation.w + pose2.orientation.w; //verificar si no hace falta un modulo aqui PENDING
 		
 	return oplus;
 }
 
-pose ominus(pose pose1)
+geometry_msgs::Pose ominus(geometry_msgs::Pose pose1)
 {
-	pose ominus;
+	geometry_msgs::Pose ominus;
 	
-	ominus.x     = -(pose1.x * cos(pose1.theta)) - ( pose1.y * sin(pose1.theta) );
-	ominus.y     =  (pose1.x * sin(pose1.theta)) - ( pose1.y * cos(pose1.theta) );
-	ominus.theta = -(pose1.theta); 
+	ominus.position.x     = -(pose1.position.x * cos(pose1.orientation.w)) - ( pose1.position.y * sin(pose1.orientation.w) );
+	ominus.position.y     =  (pose1.position.x * sin(pose1.orientation.w)) - ( pose1.position.y * cos(pose1.orientation.w) );
+	ominus.orientation.w  = -(pose1.orientation.w); 
 		
 	return ominus;
 }
 
-pose add_gaussian_noise(pose pose_prev, pose pose_now, pose var, pose noise)
+geometry_msgs::Pose add_gaussian_noise(geometry_msgs::Pose pose_prev, geometry_msgs::Pose pose_now, float var_x, float var_y, float var_theta)
 {
-	pose increment;
-	pose increment_w_noise;
-	pose pose_w_noise;
-	pose pose_prev_inv;
+	geometry_msgs::Pose increment;
+	geometry_msgs::Pose increment_w_noise;
+	geometry_msgs::Pose pose_w_noise;
+	geometry_msgs::Pose pose_prev_inv;
 	
 	//Compute the position increment
 	// pose_prev_inv = ominus(pose_prev);
@@ -85,10 +74,8 @@ pose add_gaussian_noise(pose pose_prev, pose pose_now, pose var, pose noise)
 	// increment.x     = pose_now->x     - pose_prev->x;
 	// increment.y     = pose_now->y     - pose_prev->y;
 	// increment.theta = pose_now->theta - pose_prev->theta;
-	
-	pose_prev_inv = ominus(pose_prev);
-	
-	increment = oplus(pose_now, pose_prev_inv);
+		
+	increment = oplus( ominus(pose_prev), pose_now);
 	
 	//Create random numbers from normal distribution with range noise
 	std::default_random_engine generator;
@@ -96,9 +83,9 @@ pose add_gaussian_noise(pose pose_prev, pose pose_now, pose var, pose noise)
 	double random_number = distribution(generator);
 	
 	//Add the gaussian noise to the current position increment
-	increment_w_noise.x     = increment.x     + ( sqrt(var.x)     * random_number);
-	increment_w_noise.y     = increment.y     + ( sqrt(var.y )    * random_number);
-	increment_w_noise.theta = increment.theta + ( sqrt(var.theta) * random_number);
+	increment_w_noise.position.x     = increment.position.x     + ( sqrt(var_x)     * random_number);
+	increment_w_noise.position.y     = increment.position.y     + ( sqrt(var_y )    * random_number);
+	increment_w_noise.orientation.w  = increment.orientation.w  + ( sqrt(var_theta) * random_number);
 	
 	
     //Add error in the increment to the latest pose, this error is in a new ref.frame due to drift
@@ -168,38 +155,36 @@ int main(int argc, char **argv)
 		//Determine current and previous poses
 		if (first_pose_received == true)
 			{
-				pose_prev.x     = 0;
-				pose_prev.y     = 0;
-				pose_prev.theta = 0;
+				pose_prev.position.x     = x; //For the first pose received the value of groundtruth is assigned, so pose_prev = pose_now
+				pose_prev.position.y     = y;
+				pose_prev.orientation.w  = theta;
 			}
 		else
-			{
-				// pose_prev.x     = x_odom; //previous pose published in odom topic w/noise injected
-				// pose_prev.y     = y_odom;
-				// pose_prev.theta = theta_odom;
-				
-				pose_prev.x     = pose_now.x;
-				pose_prev.y     = pose_now.y;
-				pose_prev.theta = pose_now.theta;
+			{	
+				pose_prev.position.x     = pose_now.position.x;  //Assign  the value saved in the last cycle
+				pose_prev.position.y     = pose_now.position.y;
+				pose_prev.orientation.w  = pose_now.orientation.w;
 			}
 		
-		pose_now.x     = x; //ground truth data being received by suscriber callback
-		pose_now.y     = y;
-		pose_now.theta = theta;
+		first_pose_received = false; //change flag for subsequent readings
+		
+		pose_now.position.x     = x; //ground truth data being received by suscriber callback
+		pose_now.position.y     = y;
+		pose_now.orientation.w  = theta;
 			
 		//add noise to data
-		odom_w_noise = add_gaussian_noise(pose_prev, pose_now, var, noise);
+		odom_w_noise = add_gaussian_noise(pose_prev, pose_now, var_x, var_y, var_theta);
 		
 		//transform theta to quaternion for odom msg, odom_quat
 		geometry_msgs::Quaternion g_truth_quat = tf::createQuaternionMsgFromYaw(theta);
-		geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(odom_w_noise.theta);
+		geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(odom_w_noise.orientation.w); //angle value stored in .orientation.w variable
 		
 		//publish odometry msg over ROS
 		nav_msgs::Odometry odom;
 		odom.header.stamp          = current_time;
 		odom.header.frame_id       = "odom";
-		odom.pose.pose.position.x  = odom_w_noise.x;
-		odom.pose.pose.position.y  = odom_w_noise.y;
+		odom.pose.pose.position.x  = odom_w_noise.position.x;
+		odom.pose.pose.position.y  = odom_w_noise.position.y;
 		odom.pose.pose.position.z  = 0.0;
 		odom.pose.pose.orientation = odom_quat;
 		odom.child_frame_id        = "base_link";
@@ -211,8 +196,8 @@ int main(int argc, char **argv)
 		odom_trans.header.stamp            = current_time;
 		odom_trans.header.frame_id         = "odom";
 		odom_trans.child_frame_id          = "base_link";
-		odom_trans.transform.translation.x = odom_w_noise.x;
-		odom_trans.transform.translation.y = odom_w_noise.y;
+		odom_trans.transform.translation.x = odom_w_noise.position.x;
+		odom_trans.transform.translation.y = odom_w_noise.position.y;
 		odom_trans.transform.translation.z = 0.0;
 		odom_trans.transform.rotation      = odom_quat;
 		//send transform
@@ -220,8 +205,8 @@ int main(int argc, char **argv)
 		
 		//create path msg w/odom information
 		geometry_msgs::PoseStamped odom_pose_stamped;
-		odom_pose_stamped.pose.position.x  = odom_w_noise.x;
-		odom_pose_stamped.pose.position.y  = odom_w_noise.y;
+		odom_pose_stamped.pose.position.x  = odom_w_noise.position.x;
+		odom_pose_stamped.pose.position.y  = odom_w_noise.position.y;
 		odom_pose_stamped.pose.orientation = odom_quat;
 		odom_pose_stamped.header.stamp     = current_time;
 		odom_pose_stamped.header.frame_id  = "map";
@@ -241,9 +226,7 @@ int main(int argc, char **argv)
 		groundtruth_path.header.stamp = current_time;
 		groundtruth_path.header.frame_id = "map";
 		path_pub_gtruth.publish(groundtruth_path);
-		
-		first_pose_received = false; //change flag for subsequent readings
-		
+				
 		r.sleep();
 	}
 	//ros::spin();
