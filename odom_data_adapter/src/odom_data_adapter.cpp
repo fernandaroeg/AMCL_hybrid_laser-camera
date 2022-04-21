@@ -11,16 +11,10 @@
 #include<random>
 
 //PARAMETER SETUP
-float var_x     = 0.001;  //variance in x, value taken from turtlebot sim in gazebo
-float var_y     = 0.001;  //variance in y, value taken from turtlebot sim in gazebo
-float var_theta = 0.0076; //variance in z/yaw, value taken from turtlebot sim in gazebo
+float var_x     = 0.001;  //variance in x, experimental values
+float var_y     = 0.001;  //variance in y, experimental values
+float var_theta = 0.0076; //variance in z, experimental values
 
-// float var_x u= 0.01;  //covariance in x
-// float var_y = 0.01;  //covariance in y
-// float var_theta = 0.00028; //covariance in z/yaw
-// float noise_range_x = 0.1; //10cm expressed in meters
-// float noise_range_y = 0.1; //10cm expressed in meters
-// float noise_range_theta = 0.017; //1 degreed expressed in radians
 	
 //GLOBAL VARIABLES
 float x;
@@ -65,16 +59,7 @@ geometry_msgs::Pose add_gaussian_noise(geometry_msgs::Pose pose_prev, geometry_m
 	geometry_msgs::Pose pose_w_noise;
 	geometry_msgs::Pose pose_prev_inv;
 	
-	//Compute the position increment
-	// pose_prev_inv = ominus(pose_prev);
-	// increment.x     = pose_now->x     - pose_prev_inv.x;
-	// increment.y     = pose_now->y     - pose_prev_inv.y;
-	// increment.theta = pose_now->theta - pose_prev_inv.theta;
-	
-	// increment.x     = pose_now->x     - pose_prev->x;
-	// increment.y     = pose_now->y     - pose_prev->y;
-	// increment.theta = pose_now->theta - pose_prev->theta;
-		
+	//Compute the pose increment
 	increment = oplus( ominus(pose_prev), pose_now);
 	
 	//Create random numbers from normal distribution with range noise
@@ -88,9 +73,9 @@ geometry_msgs::Pose add_gaussian_noise(geometry_msgs::Pose pose_prev, geometry_m
 	increment_w_noise.orientation.w  = increment.orientation.w  + ( sqrt(var_theta) * random_number);
 	
 	
-    //Add error in the increment to the latest pose, this error is in a new ref.frame due to drift
-    //To add this error to the latest pose in another ref.frame the rel. tranfsm. oplus is used
-    //odom_pose_now_noise = pose_now /oplus increment_w_noise
+	//Add error in the increment to the latest pose, this error is in a new ref.frame due to drift
+	//To add this error to the latest pose in another ref.frame the rel. tranfsm. oplus is used
+	//odom_pose_now_noise = pose_now /oplus increment_w_noise
 	pose_w_noise = oplus(pose_prev, increment_w_noise);
 	
 	return pose_w_noise;
