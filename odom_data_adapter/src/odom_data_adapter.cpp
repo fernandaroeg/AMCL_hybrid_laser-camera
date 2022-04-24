@@ -9,35 +9,45 @@
 #include<string>
 #include<math.h>
 #include<random>
+#include <chrono> //For system_clock
 
 //PARAMETER SETUP
-float var_x     = 0.001;  //variance in x, experimental values
-float var_y     = 0.001;  //variance in y, experimental values
-float var_theta = 0.0076; //variance in z, experimental values
+float var_x     = 0.0001;  //variance in x, experimental values 1cm
+float var_y     = 0.0001;  //variance in y, experimental values 1cm
+float var_theta = 0.0000028; //variance in z, experimental values 0.1 degree
 
 	
 //GLOBAL VARIABLES
-float x;
+//float x=0; //PENDING borrar
+//float y=0;
+//float theta = 0;
+float x; 
 float y;
 float theta;
 float x_odom;
 float y_odom;
 float theta_odom;
 bool  first_pose_received = true;
+double two_pi = 2*M_PI;
 
 geometry_msgs::Pose pose_now;
 geometry_msgs::Pose pose_prev;
 geometry_msgs::Pose odom_w_noise;
+geometry_msgs::Pose increment_total;
 
 //FUNCTIONS DEFINITIONS
 geometry_msgs::Pose oplus(geometry_msgs::Pose pose1, geometry_msgs::Pose pose2)
 {
 	geometry_msgs::Pose oplus;
+	float angle_sum, angle_wrap;
 	
 	oplus.position.x     = pose1.position.x + (pose2.position.x * cos(pose1.orientation.w)) - ( pose2.position.y * sin(pose1.orientation.w) );
 	oplus.position.y     = pose1.position.y + (pose2.position.x * sin(pose1.orientation.w)) + ( pose2.position.y * cos(pose1.orientation.w) );
-	oplus.orientation.w  = pose1.orientation.w + pose2.orientation.w; //verificar si no hace falta un modulo aqui PENDING
-		
+	oplus.orientation.w  = pose1.orientation.w + pose2.orientation.w;
+	// angle_sum = pose1.orientation.w + pose2.orientation.w;
+	// angle_wrap = angle_sum - two_pi * floor( angle_sum / two_pi);
+	// oplus.orientation.w  = angle_wrap; //The sum of the angles is wrapped so that it is inside the range [0,2pi]
+	
 	return oplus;
 }
 
@@ -54,29 +64,33 @@ geometry_msgs::Pose ominus(geometry_msgs::Pose pose1)
 
 geometry_msgs::Pose add_gaussian_noise(geometry_msgs::Pose pose_prev, geometry_msgs::Pose pose_now, float var_x, float var_y, float var_theta)
 {
-	geometry_msgs::Pose increment;
 	geometry_msgs::Pose increment_w_noise;
+	geometry_msgs::Pose increment;
 	geometry_msgs::Pose pose_w_noise;
 	geometry_msgs::Pose pose_prev_inv;
 	
 	//Compute the pose increment
 	increment = oplus( ominus(pose_prev), pose_now);
 	
-	//Create random numbers from normal distribution with range noise
-	std::default_random_engine generator;
+	//Create random numbers from normal distribution 
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	std::default_random_engine generator(seed);
 	std::normal_distribution<double> distribution(/*mean*/ 0.0, /*std_dev*/ 1.0);
 	double random_number = distribution(generator);
 	
 	//Add the gaussian noise to the current position increment
-	increment_w_noise.position.x     = increment.position.x     + ( sqrt(var_x)     * random_number);
-	increment_w_noise.position.y     = increment.position.y     + ( sqrt(var_y )    * random_number);
-	increment_w_noise.orientation.w  = increment.orientation.w  + ( sqrt(var_theta) * random_number);
+	increment_w_noise.position.x     = increment.position.x     + (sqrt(var_x)    * random_number);
+	increment_w_noise.position.y     = increment.position.y     + (sqrt(var_y)    * random_number);
+	increment_w_noise.orientation.w  = increment.orientation.w  + (sqrt(var_theta)* random_number);
 	
+	increment_total.position.x    += increment_w_noise.position.x   ;
+	increment_total.position.y    += increment_w_noise.position.y   ;
+	increment_total.orientation.w += increment_w_noise.orientation.w;
 	
 	//Add error in the increment to the latest pose, this error is in a new ref.frame due to drift
 	//To add this error to the latest pose in another ref.frame the rel. tranfsm. oplus is used
 	//odom_pose_now_noise = pose_now /oplus increment_w_noise
-	pose_w_noise = oplus(pose_prev, increment_w_noise);
+	pose_w_noise = oplus( pose_prev, increment_total); 
 	
 	return pose_w_noise;
 }
@@ -92,7 +106,9 @@ void poseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
 	theta = yaw;
-	//ROS_INFO("%f", theta);
+	//x = 1;
+	//y = 1;
+	//theta = 0;
 }
 
 void odom_poseCallback(const geometry_msgs::PoseStamped::ConstPtr &odom_msg) {
@@ -138,28 +154,28 @@ int main(int argc, char **argv)
 		current_time = ros::Time::now(); //get current time
 		
 		//Determine current and previous poses
-		if (first_pose_received == true)
+		if (first_pose_received==true)
 			{
 				pose_prev.position.x     = x; //For the first pose received the value of groundtruth is assigned, so pose_prev = pose_now
 				pose_prev.position.y     = y;
 				pose_prev.orientation.w  = theta;
 			}
 		else
-			{	
-				pose_prev.position.x     = pose_now.position.x;  //Assign  the value saved in the last cycle
-				pose_prev.position.y     = pose_now.position.y;
-				pose_prev.orientation.w  = pose_now.orientation.w;
+			{		
+				pose_prev.position.x     = odom_w_noise.position.x;  //Assign  the value saved in the last cycle of pose w noise added
+				pose_prev.position.y     = odom_w_noise.position.y;
+				pose_prev.orientation.w  = odom_w_noise.orientation.w;
 			}
 		
 		first_pose_received = false; //change flag for subsequent readings
 		
 		pose_now.position.x     = x; //ground truth data being received by suscriber callback
 		pose_now.position.y     = y;
-		pose_now.orientation.w  = theta;
-			
+		pose_now.orientation.w  = theta;	
+		
 		//add noise to data
 		odom_w_noise = add_gaussian_noise(pose_prev, pose_now, var_x, var_y, var_theta);
-		
+			
 		//transform theta to quaternion for odom msg, odom_quat
 		geometry_msgs::Quaternion g_truth_quat = tf::createQuaternionMsgFromYaw(theta);
 		geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(odom_w_noise.orientation.w); //angle value stored in .orientation.w variable
