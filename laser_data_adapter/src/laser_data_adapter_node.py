@@ -11,25 +11,25 @@ import tf
 
 ###ROS LaserScan message format###
 # std_msgs/Header header
-  # uint32 seq  --------numerar del 1 al 1695
-  # time stamp ------------unix epoch timestamp, 18 digitos sec los primeros 10, nsecs los ultimos 8
-        #sec:
-        #nsecs:
-  # string frame_id -----------name of the TF 'laser_link', tomar launch file o hacer funcion?
-# float32 angle_min---------- 2.094395102
-# float32 angle_max---------- -2.094395102
-# float32 angle_increment-------??   pi/num_scans 0.00460644
-# float32 time_increment----------0.0
-# float32 scan_time--------0.0
-# float32 range_min-------0.06 segun datasheet
-# float32 range_max ---- 4m segun datasheet
-# float32[] ranges ------valores de la 4a fila hasta el cambio de linea
-# float32[] intensities--vacio
+  # uint32 seq
+  # time stamp
+        #sec            
+        #nsecs          
+  # string frame_id
+# float32 angle_min
+# float32 angle_max
+# float32 angle_increment
+# float32 time_increment
+# float32 scan_time
+# float32 range_min
+# float32 range_max
+# float32[] ranges 
+# float32[] intensities
 
-#2. Managae files in folder !!!!!! update to get this paths from launchfile
+#2. File Paths and Parameters !!!!!! update to get this paths from launchfile
 path_laser_logs= "/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/laser_data_adapter/data/alma/1_hokuyo_processed/"
 file_laser_tstamps="/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/laser_data_adapter/data/alma/1_hokuyo_processed.txt"
-file_odom="/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/laser_data_adapter/data/alma/log_estimated_path.txt"
+scenario = "alma" 
 
 #3. Get all txt files names in a list
 filenames = [ ]
@@ -42,18 +42,18 @@ print 'There are', num_files, 'laser txt files in the folder path_laser_logs'
 filenames.sort(key=lambda f: int(filter(str.isdigit, f))) #order files names in natural ascending order
 
 #4. Function to populate ROS LaserMsg format with relevant data
-def fill_laser_msg(laser_values, num_txt_file, num_readings, t):  
+def fill_laser_msg(laser_values, aperture, num_txt_file, num_readings, t):  
     laser_msg = LaserScan()
     laser_msg.header.seq = num_txt_file
     laser_msg.header.stamp = t
     laser_msg.header.frame_id = '/laser' #transform frame name
-    laser_msg.angle_min = -120.0 / 180.0 * pi #120 is min/max range, taken from the datasheet
-    laser_msg.angle_max = 120.0 / 180.0 * pi
-    laser_msg.angle_increment = pi / num_readings
-    laser_msg.time_increment = 0.1/ 360.0
-    laser_msg.scan_time = 0.1 #taken from hokuyo laser datasheet
-    laser_msg.range_min = 0.06 # taken from hokuyo laser datasheet
-    laser_msg.range_max = 4.0 # taken from hokuyo laser datasheet
+    laser_msg.angle_min = aperture * -0.5 #formulas (lines 50-54) taken from https://github.com/mrpt-ros-pkg/mrpt_bridge/blob/ros1/src/laser_scan.cpp
+    laser_msg.angle_max = aperture *  0.5  
+    laser_msg.angle_increment = aperture/(num_readings-1)
+    laser_msg.time_increment = 1/30 
+    laser_msg.scan_time = 0.0 
+    laser_msg.range_min = 0.06 # taken from URG-04LX-UG01 hokuyo laser datasheet https://hokuyo-usa.com/application/files/5115/8947/8197/URG-04LX-UG01_Specifications_Catalog.pdf
+    laser_msg.range_max = 4.0  # taken from URG-04LX-UG01 hokuyo laser datasheet
     laser_msg.ranges = laser_values
     return laser_msg
     
@@ -67,6 +67,7 @@ def laser_tf_msg(seq, t):
     trans.transform.translation.x = 0.205 #laser position in m, taken from dataset paper
     trans.transform.translation.y = 0.0
     trans.transform.translation.z = 0.31
+    #q = tf.transformations.quaternion_from_euler(yaw,pitch,roll)
     q = tf.transformations.quaternion_from_euler(0,0,0)
     trans.transform.rotation.x = q[0]
     trans.transform.rotation.y = q[1]
@@ -76,7 +77,7 @@ def laser_tf_msg(seq, t):
     msg.transforms.append(trans)
     return msg
     
-#6. Logic to put timestamp data in list format and transform from TTimeStamp format to unix epoch
+#6. Logic to put timestamp data in list format and transform from MRPT TTimeStamp format to unix epoch
 with open(file_laser_tstamps,'r') as tstamps_file:
     tstamp_file= tstamps_file.readlines()
     #print "The num of lines in the tstamp file is", len(tstamp_file) #first four lines are not relevant just header data
@@ -90,40 +91,22 @@ with open(file_laser_tstamps,'r') as tstamps_file:
         ros_secs = (mrpt_tstamp/10000000) - (11644473600) #formulas taken from: http://docs.ros.org/en/jade/api/mrpt_bridge/html/time_8h_source.html#l00027
         ros_nsecs =  (mrpt_tstamp % 10000000) * 100
         tstamp[item]=rospy.Time(ros_secs,ros_nsecs)#turning the timestamp values to timestamp object
-        
-        
-#7. Lo mismo que el paso 6 pero para crear lista con datos de estimated path x,y,theta
-with open(file_odom,'r') as odom_file:
-    odom_file = odom_file.readlines()
-    x = []
-    for line in odom_file:
-        breaking_lines = line.split()
-        x.append(float(breaking_lines[1])) #data in 2nd row and convert str to float
-    y = []
-    for line in odom_file:
-        breaking_lines = line.split()
-        y.append(float(breaking_lines[2])) #data in 3 row
-    theta = []
-    for line in odom_file:
-        breaking_lines = line.split()
-        theta.append(float(breaking_lines[3])) #data in 4th row
 
-
-#8.  Open bag file to write data in it 
-scenario = "alma" #!!!!! get this data from launch file
+#7.  Open bag file to write data in it 
 bag = rosbag.Bag('laser_data_'+scenario+'.bag', 'w')
 
-#9. Extract  laser data from multiple text files (one text file for each scan with multiple laser readings )
+#8. Extract  laser data from multiple text files (one text file for each scan with multiple laser readings )
 for file in range(num_files):
     with open (path_laser_logs+filenames[file], 'r') as myfile:
         data = myfile.readlines()
+        laser_aperture = float(data[7])
         range_values = data[10]
         range_values_list= range_values.split()
         map_r_values = map(float, range_values_list)
         range_values = list(map_r_values)
         num_scans = len(range_values)
         print "There are ", num_scans, "scanner readings in txt file", file
-        laser_msg = fill_laser_msg(range_values,file,num_scans, tstamp[file])  #call function to fill laser data
+        laser_msg = fill_laser_msg(range_values, laser_aperture, file,num_scans, tstamp[file])  #call function to fill laser data
         tf_data = laser_tf_msg(file,tstamp[file])#call function to generate TF laser data
     bag.write("/tf", tf_data, tstamp[file])
     bag.write("/scan", laser_msg, tstamp[file])
