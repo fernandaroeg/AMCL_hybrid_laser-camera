@@ -1,56 +1,63 @@
 <launch>	
+	<arg name="initial_pose_x" default="0.0"/>
+	<arg name="initial_pose_y" default="0.0"/>
+	<arg name="initial_pose_a" default="0.0"/>
 	
 	<!-- Set simulation time to synchronize bag files and node data-->
 	<param name="/use_sim_time" type="bool" value="true"/>
 	
 	<!-- Map Server -->
 	<node pkg="mrpt_map" type="map_server_node" name="map_server_node" output="screen">
-    <param name="debug" value="false"/> 
-    <param name="frame_id" value="map"/> 
-    <param name="frequency" value="1"/> 
-    <param name="ini_file" value="$(find odom_data_adapter)/maps/map.ini"/> 
-    <param name="map_file" value="$(find odom_data_adapter)/maps/map.simplemap"/> 
-    </node>
+	<param name="debug" value="false"/> 
+	<param name="frame_id" value="map"/> 
+	<param name="frequency" value="1"/> 
+	<param name="ini_file" value="$(find odom_data_adapter)/maps/map.ini"/> 
+	<param name="map_file" value="$(find odom_data_adapter)/maps/map.simplemap"/> 
+	</node>
 	
 	<!-- Place map frame at odometry frame -->
 	<node pkg="tf" type="static_transform_publisher" name="map_odom_broadcaster" args="0 0 0 0 0 0 map odom 100" />
 	
 	<!-- Launch Odom_adapter_node -->
 	<node pkg="odom_data_adapter" type="odom_data_adapter" name="odom_data_adapter" output="screen">
-    </node>
+	</node>
 	
 	<!-- Launch AMCL -->
 	<node pkg="amcl" type="amcl" name="amcl" output="screen">	
+		<param name="initial_pose_x"    value="$(arg initial_pose_x)"/>
+		<param name="initial_pose_y"    value="$(arg initial_pose_y)"/>
+		<param name="initial_pose_a"    value="$(arg initial_pose_a)"/>
+	
 		<!-- General Parameters -->
 		<param name="odom_frame_id" value="odom" />
-		<param name="odom_model_type" value="diff" />
+		<param name="odom_model_type" value="diff-corrected" />
 		<param name="base_frame_id" value="base_link" />
 		<param name="global_frame_id" value="map" />
 		
 		<!-- Filter Parameters -->
 		<param name="min_particles" value="500"/>
-        <param name="max_particles" value="5000"/>
+		<param name="max_particles" value="5000"/>
 		<param name="update_min_d" value="0.5" />
 		<param name="update_min_a" value="0.1" />
 		<param name="kld_err" value="0.05"/>
-        <param name="kld_z" value="0.99"/>
+		<param name="kld_z" value="0.99"/>
 		<param name="update_min_d" value="0.2"/>
-        <param name="update_min_a" value="0.5"/>
+		<param name="update_min_a" value="0.5"/>
 		<param name="resample_interval" value="1"/>
-        <param name="transform_tolerance" value="0.1"/>
+		<param name="transform_tolerance" value="0.1"/>
 		<param name="gui_publish_rate" value="10.0"/>
 		
 		<!-- Laser Parameters -->
 		<param name="laser_max_range" value="10.0"/>
-        <param name="laser_min_range" value="0.5"/>
+		<param name="laser_min_range" value="0.5"/>
 		<param name="laser_max_beams" value="30"/>
 		<param name="laser_z_hit" value="0.50"/>
-        <param name="laser_z_short" value="0.05"/>
-        <param name="laser_z_max" value="0.05"/>
-        <param name="laser_z_rand" value="0.50"/>
-        <param name="laser_lambda_short" value="0.1"/>
-        <param name="laser_model_type" value="likelihood_field"/>
-        <param name="laser_likelihood_max_dist" value="2.0"/>		
+		<param name="laser_z_short" value="0.05"/>
+		<param name="laser_z_max" value="0.05"/>
+		<param name="laser_z_rand" value="0.50"/>
+		<param name="laser_lambda_short" value="0.1"/>
+		<param name="laser_model_type" value="likelihood_field"/>
+		<param name="laser_likelihood_max_dist" value="2.0"/>		
 	</node>
 	
 	<!-- Play laser and groundtruth rosbags -->
@@ -58,5 +65,5 @@
 	<arg name="file1" default="laser_data_alma"/>
 	<arg name="file2" default="g_truth_path_markers_alma"/>
 	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file2).bag $(arg path)$(arg file1).bag" />
-    	
+	
 </launch>
