@@ -26,10 +26,11 @@ import tf
 # float32[] ranges 
 # float32[] intensities
 
-#2. File Paths and Parameters !!!!!! update to get this paths from launchfile
-path_laser_logs= "/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/laser_data_adapter/data/alma/1_hokuyo_processed/"
-file_laser_tstamps="/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/laser_data_adapter/data/alma/1_hokuyo_processed.txt"
-scenario = "alma" 
+#2. File Paths and Parameters
+path_laser_logs   = rospy.get_param('/laser_data_adapter/laser_logs_path')
+file_laser_tstamps= rospy.get_param('/laser_data_adapter/tstamp_file')
+scenario          = rospy.get_param('/laser_data_adapter/environment')
+
 
 #3. Get all txt files names in a list
 filenames = [ ]
@@ -64,7 +65,7 @@ def laser_tf_msg(seq, t):
     trans.header.stamp = t
     trans.header.frame_id = '/base_link'
     trans.child_frame_id = '/laser'
-    trans.transform.translation.x = 0.205 #laser position in m, taken from dataset paper
+    trans.transform.translation.x = 0.205 #laser position in m, from dataset paper http://mapir.uma.es/papersrepo/2017/2017-raul-IJRR-Robot_at_home_dataset.pdf
     trans.transform.translation.y = 0.0
     trans.transform.translation.z = 0.31
     #q = tf.transformations.quaternion_from_euler(yaw,pitch,roll)
