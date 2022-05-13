@@ -1,0 +1,4 @@
+<launch>	
+    <node pkg="rgbd_data_adapter" type="rgbd_data_adapter.py" name="rgbd_data_adapter" output="screen">
+    </node>
+</launch>
