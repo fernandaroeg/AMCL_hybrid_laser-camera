@@ -1,6 +1,6 @@
-image: alma.pgm
-resolution: 0.060000
-origin: [-16.020000, -10.020000, 0.000000]
+image: alma_bueno.pgm
+resolution: 0.050000
+origin: [-100.000000, -100.000000, 0.000000]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.196
