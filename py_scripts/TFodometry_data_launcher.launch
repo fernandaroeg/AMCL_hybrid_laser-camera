@@ -1,4 +1,0 @@
-<launch>	
-    <node pkg="odometry_data_adapter_node" type="create_TF_odom_footprint.py" name="odometry_data_adapter" output="screen">
-    </node>
-</launch>
