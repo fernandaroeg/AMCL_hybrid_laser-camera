@@ -1,9 +1,9 @@
 <launch>
 	
     <node pkg="laser_data_adapter" type="laser_data_adapter_node.py" name="laser_data_adapter" output="screen">
-	<param name="environment"      value="alma" />
-	<param name="laser_logs_path"  value="$(find laser_data_adapter)/data/alma/1_hokuyo_processed/" />
-	<param name="tstamp_file"      value="$(find laser_data_adapter)/data/alma/1_hokuyo_processed.txt" />
+	<param name="environment"      value="rx2" />
+	<param name="laser_logs_path"  value="$(find laser_data_adapter)/data/rx2/3_hokuyo_processed/" />
+	<param name="tstamp_file"      value="$(find laser_data_adapter)/data/rx2/3_hokuyo_processed.txt" />
     </node>
 		
 </launch>
