@@ -1,5 +1,6 @@
 #include<ros/ros.h>
 #include<std_msgs/Int32.h>
+#include<geometry_msgs/PoseWithCovarianceStamped.h>
 #include<geometry_msgs/PoseStamped.h>
 #include<geometry_msgs/Pose.h>
 #include<nav_msgs/Odometry.h>
@@ -9,22 +10,18 @@
 #include<string>
 #include<math.h>
 #include<random>
-#include <chrono> //For system_clock
+#include <chrono>
 
-//PARAMETER SETUP
-float var_x     = 0.0001;    //variance in x, experimental values 1cm
-float var_y     = 0.0001;    //variance in y, experimental values 1cm
-float var_theta = 0.0000028; //variance in z, experimental values 0.1 degree
+//Script that suscribes to topic with groundtruth pose data and injects gaussian noise to it and publishes in odom topic
 
-	
 //GLOBAL VARIABLES
+float var_x, var_y, var_theta;
 float x, y, theta;
 bool  first_pose_received = true;
 //double two_pi = 2*M_PI;
  
-geometry_msgs::Pose pose_now, pose_prev;
-geometry_msgs::Pose increment, noise;
-geometry_msgs::Pose odom_w_noise;
+geometry_msgs::Pose pose_now, pose_prev, initial_pose;
+geometry_msgs::Pose increment, noise, odom_w_noise;
 
 
 //FUNCTION DEFINITIONS
@@ -78,11 +75,17 @@ int main(int argc, char **argv)
 	ros::NodeHandle nh;
 	
 	//Declare publishers and suscriber
-	ros::Subscriber sub      = nh.subscribe("g_truth/Pose", 1000, poseCallback);
+	ros::Subscriber sub     = nh.subscribe("g_truth/Pose", 1000, poseCallback);
 	ros::Publisher odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 1000); 
 	ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("trajectory",1000);
 	ros::Publisher path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);
+	ros::Publisher init_pose_pub   = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose",1000,true); //latch topic
 	tf::TransformBroadcaster odom_broadcaster;
+	
+	//Get params from launch file
+	nh.getParam("/odom_data_adapter/var_x", var_x);
+	nh.getParam("/odom_data_adapter/var_y", var_y);
+	nh.getParam("/odom_data_adapter/var_theta", var_theta);
 	
 	//Get current time in variable
 	ros::Time current_time;
@@ -105,6 +108,23 @@ int main(int argc, char **argv)
 				pose_prev.position.y     = y;
 				pose_prev.orientation.w  = theta;
 				first_pose_received = false; //change flag for subsequent readings
+				initial_pose.position.x = x;
+				initial_pose.position.y = y;
+				geometry_msgs::Quaternion init_pose_quat = tf::createQuaternionMsgFromYaw(theta);
+				initial_pose.orientation = init_pose_quat;
+				//publish initialpose to topic
+				geometry_msgs::PoseWithCovarianceStamped initialpose_msg;
+				initialpose_msg.header.stamp = ros::Time::now();
+				initialpose_msg.header.frame_id = "/map"; //PENDING verificar
+				initialpose_msg.pose.pose.position    = initial_pose.position;
+				initialpose_msg.pose.pose.orientation = initial_pose.orientation;
+				initialpose_msg.pose.covariance[0] = var_x*2;
+				initialpose_msg.pose.covariance[7] = var_y*2;
+				initialpose_msg.pose.covariance[14] = 999;
+				initialpose_msg.pose.covariance[21] = 999;
+				initialpose_msg.pose.covariance[28] = 999;
+				initialpose_msg.pose.covariance[35] = var_theta*2;
+				init_pose_pub.publish(initialpose_msg);
 			}
 		else
 			{		
@@ -157,7 +177,13 @@ int main(int argc, char **argv)
 		odom.pose.pose.position.y  = odom_w_noise.position.y;
 		odom.pose.pose.position.z  = 0.0;
 		odom.pose.pose.orientation = odom_quat;
-		odom.child_frame_id        = "base_link";
+		odom.pose.covariance[0] = var_x;
+		odom.pose.covariance[7] = var_y;
+		odom.pose.covariance[14] = 999;
+		odom.pose.covariance[21] = 999;
+		odom.pose.covariance[28] = 999;
+		odom.pose.covariance[35] = var_theta;
+		odom.child_frame_id      = "base_link";
 		//publish the msg
 		odom_pub.publish(odom);
 		
