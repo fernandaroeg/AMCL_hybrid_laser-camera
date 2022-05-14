@@ -3,15 +3,15 @@
 #Script to adapt RGB-D data in png files to ROS msgs in bag file: sensor_msgs/CameraInfo, sensor_msgs/Image, sensor_msgs/PointCloud2
 
 ###ROS CameraInfo message format###          ###ROS Image message format###          ###ROS PointCloud2 message format###
-# std_msgs/Header header                                   # std_msgs/Header header                          # std_msgs/Header header
-# uint32 height                                                         # uint32 height                                               # uint32 height
-# uint32 width                                                          # uint32 width                                                 # uint32 width
-# storing distortion_model                                     # string encoding                                           # sensor_msgs/PointField []
-# float64 [] D                                                             # uint8 is_bigendian                                     # bool is_bigendian
-# float64 [9] K                                                           # uint32 step                                                  # uint32 point_step
-# float64 [9] R                                                          # uint8 [] data                                                  # uint32 row_step
-# float64 [12] P                                                                                                                                  # uint8 [] data
-# uint32 binning_x                                                                                                                            # bool is_dense
+# std_msgs/Header header                     # std_msgs/Header header                # std_msgs/Header header
+# uint32 height                              # uint32 height                         # uint32 height
+# uint32 width                               # uint32 width                          # uint32 width
+# storing distortion_model                   # string encoding                       # sensor_msgs/PointField []
+# float64 [] D                               # uint8 is_bigendian                    # bool is_bigendian
+# float64 [9] K                              # uint32 step                           # uint32 point_step
+# float64 [9] R                              # uint8 [] data                         # uint32 row_step
+# float64 [12] P                                                                     # uint8 [] data
+# uint32 binning_x                                                                   # bool is_dense
 # uint32 binning_y
 # sensor_msgs/RegionsOfInterest roi
 
@@ -126,6 +126,7 @@ print "number of readings with RGBD_id2", len(RGB_id2_file_name[0])
 print "number of readings with RGBD_id3", len(RGB_id3_file_name[0])
 print "number of readings with RGBD_id4", len(RGB_id4_file_name[0])
 
+
 ####MOSAIC CREATION####
 #Crear grupos de 4 imagenes
 # path_imgs= "/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/rgbd_data_adapter/data/alma/"
@@ -151,6 +152,7 @@ print "number of readings with RGBD_id4", len(RGB_id4_file_name[0])
 
 #Function to populate ROS Image msg format
 def fill_image_msg(img_path, seq, t):  
+    bridge = CvBridge()
     cv_img = cv2.imread(img_path)     #Use CVbridge to convert image in given path to ros img msg
     cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
     height, width = cv_img.shape[:2]
@@ -163,22 +165,32 @@ def fill_image_msg(img_path, seq, t):
     img_msg_data.encoding = 'bgr8' #verificar que este bien bgr8    
     return img_msg_data
 
+
 #Function to populate CameraInfo message
-# def fill_CameraInfo_msg(img_path, seq, t):                      
-    # cam_info = CameraInfo()
-    # cam_info.header.seq = seq
-    # cam_info.header.stamp = t
-    # cam_info.header.frame_id =  '/camera/RGB/CameraInfo'
-    # cam_info.height = 
-    # cam_info.width =
-    # cam_info.distortion_model = 
-    # cam_info.D = 
-    # cam_info.K = 
-    # cam_info.R = 
-    # cam_info.P = 
-    # cam_info.binning_x =
-    # cam_info.binning_y =
-    # cam_info.RegionsOfInterest = 
+def fill_CameraInfo_msg(img_path, cx, cy, fx, fy, seq, t): 
+    cv_img = cv2.imread(img_path)     #Use CVbridge to convert image in given path to ros img msg
+    cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
+    height, width = cv_img.shape[:2]  
+    cam_info = CameraInfo()
+    cam_info.header.seq = seq
+    cam_info.header.stamp = t
+    cam_info.header.frame_id = '/camera/RGB/CameraInfo'
+    cam_info.height = height
+    cam_info.width = width
+    cam_info.distortion_model = "plumb_bob"; #most common model used
+    cam_info.D = [0, 0, 0, 0, 0] #Distortion parameters, for plumb_bob [k1,k2,t1, t2, k3] PENDING confirmar valores
+    cam_info.K = np.array([fx,  0, cx,
+                            0, fy, cy,
+                            0,  0,  1])
+    cam_info.R = [1, 0, 0, 0, 1, 0, 0, 0, 1] #PENDING confirmar, this seems to be the standard for stereo cams
+    cam_info.P = np.array([fx,  0, cx, 0,
+                            0, fy, cy, 0,
+                            0,  0,  1, 0])
+    cam_info.binning_x = 0 #default values=0 means no subsampling
+    cam_info.binning_y = 0 
+    #cam_info.RegionsOfInterest #Default value, width=height=0, means full resolution
+    return cam_info
+
         
 #Function to populate point cloud message
 def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
@@ -187,24 +199,29 @@ def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
     cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
     cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY) #reduce rgb dimension to grayscale
     height, width = cv_img.shape[:2]
-        
-    # Extract x,y,z data from depth image. Equations taken from dataset webpage
+    
+    # Extract x,y,z data from depth image. Equations taken from dataset webpage    
+
     points= []
-    for u in range(0,width):
-        for v in range (0, height):
-            depth = cv_img[v][u] * (1/553.5) # read each single pixel in image
+    for v in range(0,height):
+        for u in range (0, width):
+            pixel = cv_img[v][u]
+            depth = pixel * (1/553.5) # read each single pixel in image
             x = depth
-            y = (cx- u) * x/fx 
-            z = (cy- v) * x/fy  #CONFIRMAR, como rote la img tal vez van al reves las formulas
-            x = float(x)
-            y = float(y)
-            z = float(z)
-            points.append([x,y,z])
+            z = (cx- v) * x/fx 
+            y = (cy- u) * x/fy 
+            point = [x*10, y*10, z*10]
+            points.append(point)
+    
+    print "points len is", len(points)
+    #print "points type is", type(points)
+    #print "points 1st elem", points[0][0]
+    #print "points is", points
     
     #Convert data to binary blob
     fields = [  PointField( 'x', 0, PointField.FLOAT32, 1),
-                    PointField( 'y', 4, PointField.FLOAT32, 1),
-                    PointField( 'z', 8, PointField.FLOAT32, 1)]
+                PointField( 'y', 4, PointField.FLOAT32, 1),
+                PointField( 'z', 8, PointField.FLOAT32, 1)]
             
     cloud_struct = struct.Struct('<fff') #creating a struct instance to store data in bytes
                                                              #storing order: '<' little endian
@@ -224,9 +241,9 @@ def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
     header.seq = seq
     header.frame_id =  '/PointCloud' 
     pointcloud.header = header
-    pointcloud.height = height
-    pointcloud.width = width
-    pointcloud.is_dense = True #True if there are no invalid points
+    pointcloud.height = 1
+    pointcloud.width = len(points)
+    pointcloud.is_dense = False #True if there are no invalid points
     pointcloud.is_bigendian = False
     pointcloud.fields = fields
     pointcloud.point_step = cloud_struct.size
@@ -235,7 +252,6 @@ def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
         
     return pointcloud
          
-
  #Function to create TF odometry data
 def create_TFmsg(x, y, z, roll, pitch, yaw, frame, child_frame, t, seq):
     trans = TransformStamped()
@@ -255,12 +271,12 @@ def create_TFmsg(x, y, z, roll, pitch, yaw, frame, child_frame, t, seq):
     msg.transforms.append(trans)
     return msg
 
+
 #### CREATE BAG FILE AND FILL ROS MSGS####
-
 bag = rosbag.Bag('rgbd_data_'+scenario+'.bag', 'w') # Open bag file to write data in it 
-bridge = CvBridge()
 
-for i in range(0,len(RGB_id1_file_name[0])):
+#for i in range(0,len(RGB_id1_file_name[0])):
+for i in range(0,500):
 
     img_path = path_imgs + RGB_id1_file_name[0][i]   
     dep_path = path_imgs + D_id1_file_name[0][i]
@@ -273,14 +289,17 @@ for i in range(0,len(RGB_id1_file_name[0])):
     pointcloud_msg = fill_pointcloud_msg(dep_path, cx, cy, fx, fy, i, tstamp_rgb1)
    
     #Calibration camera message 
+    cam_info_msg = fill_CameraInfo_msg(img_path, cx, cy, fx, fy, i, tstamp_rgb1)
     
     #TF data 
-    tf_data = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/camera/RGB/Image', tstamp_rgb1, i)
-    tf_data = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/PointCloud', tstamp_rgb1, i)
+    tf_data_im = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/camera/RGB/Image', tstamp_rgb1, i)
+    tf_data_pc = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/PointCloud', tstamp_rgb1, i) 
      
     #Write data in bag
     bag.write('/camera/RGB/Image', img_msg, tstamp_rgb1)
     bag.write('/PointCloud', pointcloud_msg, tstamp_rgb1) #CONFIRMAR nombre del topic
-    bag.write('/tf', tf_data, tstamp_rgb1)
+    bag.write('/camera/RGB/CameraInfo', cam_info_msg, tstamp_rgb1)
+    bag.write('/tf', tf_data_im, tstamp_rgb1)
+    bag.write('/tf', tf_data_pc, tstamp_rgb1)#PENDING BUG checar que esto no se sobre escribe, checar rqt_bag
     
 bag.close()
