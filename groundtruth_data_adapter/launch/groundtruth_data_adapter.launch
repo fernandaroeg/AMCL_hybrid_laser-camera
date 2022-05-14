@@ -1,0 +1,8 @@
+<launch>	
+    <node pkg="groundtruth_data_adapter" type="groundtruth_data_adapter.py" name="groundtruth_data_adapter" output="screen">
+	<param name="environment"    value="sarmis1" />
+	<param name="gtruth_file"    value="$(find groundtruth_data_adapter)/data/sarmis1/log_estimated_path.txt" />
+	<param name="tstamp_file"    value="$(find groundtruth_data_adapter)/data/sarmis1/1_hokuyo_processed.txt" />
+	
+    </node>
+</launch>
