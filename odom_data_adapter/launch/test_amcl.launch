@@ -7,34 +7,38 @@
 	<param name="/use_sim_time" type="bool" value="true"/>
 	
 	<!-- Map Server -->
-	<node pkg="mrpt_map" type="map_server_node" name="map_server_node" output="screen">
-	<param name="debug" value="false"/> 
-	<param name="frame_id" value="map"/> 
-	<param name="frequency" value="1"/> 
-	<param name="ini_file" value="$(find odom_data_adapter)/maps/map.ini"/> 
-	<param name="map_file" value="$(find odom_data_adapter)/maps/map.simplemap"/> 
-	</node>
-	
-	<!-- Place map frame at odometry frame -->
-	<!--node pkg="tf" type="static_transform_publisher" name="map_odom_broadcaster" args="0 0 0 0 0 0 map odom 100" /-->
-	
+	<!--node pkg="mrpt_map" type="map_server_node" name="map_server_node" output="screen"-->
+	<!--param name="debug" value="false"/--> 
+	<!--param name="frame_id" value="map"/--> 
+	<!--param name="frequency" value="1"/--> 
+	<!--param name="ini_file" value="$(find odom_data_adapter)/maps/map.ini"/--> 
+	<!--param name="map_file" value="$(find odom_data_adapter)/maps/map.simplemap"/--> 
+	<!--/node-->
+	<arg name="map_file" default="$(find odom_data_adapter)/maps/alma_bueno.yaml"/>
+	<node pkg="map_server" type="map_server" name="map_server" args="$(arg map_file)" />
+		
 	<!-- Launch Odom_adapter_node -->
 	<node pkg="odom_data_adapter" type="odom_data_adapter" name="odom_data_adapter" output="screen">
 	</node>
 	
 	<!-- Launch AMCL -->
 	<node pkg="amcl" type="amcl" name="amcl" output="screen">	
-		<param name="initial_pose_x"    value="$(arg initial_pose_x)"/>
-		<param name="initial_pose_y"    value="$(arg initial_pose_y)"/>
-		<param name="initial_pose_a"    value="$(arg initial_pose_a)"/>
+		<!--param name="initial_pose_x"    value="$(arg initial_pose_x)"/-->
+		<!--param name="initial_pose_y"    value="$(arg initial_pose_y)"/-->
+		<!--param name="initial_pose_a"    value="$(arg initial_pose_a)"/-->
 	
 		<!-- General Parameters -->
 		<param name="odom_frame_id" value="odom" />
 		<param name="odom_model_type" value="diff-corrected" />
 		<param name="base_frame_id" value="base_link" />
 		<param name="global_frame_id" value="map" />
+		<param name="odom_alpha_1" value="10" />
+		<param name="odom_alpha_2" value="0" />
+		<param name="odom_alpha_3" value="10" />
+		<param name="odom_alpha_4" value="0" />
+		<param name="odom_alpha_5" value="0" />
 		
-		<!-- Filter Parameters -->
+		<!--Particle Filter Parameters -->
 		<param name="min_particles" value="500"/>
 		<param name="max_particles" value="5000"/>
 		<param name="update_min_d" value="0.5" />
