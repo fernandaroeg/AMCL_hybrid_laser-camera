@@ -11,8 +11,7 @@
 #include<math.h>
 #include<random>
 #include <chrono>
-
-//Script that suscribes to topic with groundtruth pose data and injects gaussian noise to it and publishes in odom topic
+//NODE that suscribes to topic with groundtruth pose data and injects gaussian noise to it and publishes in odom topic
 
 //GLOBAL VARIABLES
 float var_x, var_y, var_theta;
@@ -80,6 +79,7 @@ int main(int argc, char **argv)
 	ros::Publisher path_pub = nh.advertise<nav_msgs::Path>("trajectory",1000);
 	ros::Publisher path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);
 	ros::Publisher init_pose_pub   = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose",1000,true); //latch topic
+	ros::Publisher odom_pose_pub   = nh.advertise<geometry_msgs::PoseStamped>("odom_pose",1000); 
 	tf::TransformBroadcaster odom_broadcaster;
 	
 	//Get params from launch file
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 	nh.getParam("/odom_data_adapter/var_theta", var_theta);
 	
 	//Get current time in variable
-	ros::Time current_time;
+	ros::Time current_time, prev_time;
 	
 	//Declare path messages
 	nav_msgs::Path path;	
@@ -108,11 +108,12 @@ int main(int argc, char **argv)
 				pose_prev.position.y     = y;
 				pose_prev.orientation.w  = theta;
 				first_pose_received = false; //change flag for subsequent readings
+				
+				//publish initial pose to the /initialpose topic for amcl
 				initial_pose.position.x = x;
 				initial_pose.position.y = y;
 				geometry_msgs::Quaternion init_pose_quat = tf::createQuaternionMsgFromYaw(theta);
 				initial_pose.orientation = init_pose_quat;
-				//publish initialpose to topic
 				geometry_msgs::PoseWithCovarianceStamped initialpose_msg;
 				initialpose_msg.header.stamp = ros::Time::now();
 				initialpose_msg.header.frame_id = "/map"; //PENDING verificar
@@ -125,6 +126,7 @@ int main(int argc, char **argv)
 				initialpose_msg.pose.covariance[28] = 999;
 				initialpose_msg.pose.covariance[35] = var_theta*2;
 				init_pose_pub.publish(initialpose_msg);
+				prev_time = current_time;
 			}
 		else
 			{		
@@ -165,6 +167,26 @@ int main(int argc, char **argv)
 		ROS_INFO("Odom w noise is x:%f y:%f th:%f", odom_w_noise.position.x, odom_w_noise.position.y, odom_w_noise.orientation.w);
 		//****END ADD GAUSSIAN NOISE****//
 		
+		//5. compute velocities for twist message, velocity in the robot is constant , 0.1m/s, so no need to express covariance in velocity (Twist msg)   
+		float dx, dy, dyaw, vx, vy, vth, dt;
+		dx   = pose_now.position.x - pose_prev.position.x;
+		dy   = pose_now.position.y - pose_prev.position.y;
+		dyaw = pose_now.orientation.w - pose_prev.orientation.w;
+		dt   = current_time.toSec() - prev_time.toSec();
+		
+		if (dt == 0)
+			{
+				vx = 0;
+				vy = 0;
+				vth= 0;
+			}
+		else
+			{
+				vx= dx/dt;
+				vy= dy/dt;
+				vth = dyaw/dt;
+			}
+		
 		//transform theta to quaternion for odom msg, odom_quat
 		geometry_msgs::Quaternion g_truth_quat = tf::createQuaternionMsgFromYaw(theta);
 		geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(odom_w_noise.orientation.w); //angle value stored in .orientation.w variable
@@ -173,6 +195,7 @@ int main(int argc, char **argv)
 		nav_msgs::Odometry odom;
 		odom.header.stamp          = current_time;
 		odom.header.frame_id       = "odom";
+		odom.child_frame_id        = "base_link";
 		odom.pose.pose.position.x  = odom_w_noise.position.x;
 		odom.pose.pose.position.y  = odom_w_noise.position.y;
 		odom.pose.pose.position.z  = 0.0;
@@ -183,7 +206,10 @@ int main(int argc, char **argv)
 		odom.pose.covariance[21] = 999;
 		odom.pose.covariance[28] = 999;
 		odom.pose.covariance[35] = var_theta;
-		odom.child_frame_id      = "base_link";
+		//odom.twist.twist.linear.x  = vx;
+		//odom.twist.twist.linear.y  = vy;
+		//odom.twist.twist.angular.z = vth;
+
 		//publish the msg
 		odom_pub.publish(odom);
 		
@@ -199,7 +225,7 @@ int main(int argc, char **argv)
 		//send transform
 		odom_broadcaster.sendTransform(odom_trans);
 		
-		//create path msg w/odom information
+		//create path and pose msg w/odom information
 		geometry_msgs::PoseStamped odom_pose_stamped;
 		odom_pose_stamped.pose.position.x  = odom_w_noise.position.x;
 		odom_pose_stamped.pose.position.y  = odom_w_noise.position.y;
@@ -210,6 +236,7 @@ int main(int argc, char **argv)
 		path.header.stamp = current_time;
 		path.header.frame_id = "map";
 		path_pub.publish(path);
+		odom_pose_pub.publish(odom_pose_stamped);
 		
 		//create path msg w/ground truth information
 		geometry_msgs::PoseStamped groundtruth_pose_stamped;
@@ -224,6 +251,7 @@ int main(int argc, char **argv)
 		path_pub_gtruth.publish(groundtruth_path);
 				
 		r.sleep();
+		prev_time = current_time;
 	}
 	//ros::spin();
 	//return 0;

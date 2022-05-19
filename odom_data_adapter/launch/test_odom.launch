@@ -8,7 +8,7 @@
 	<param name="frame_id" value="map"/> 
 	<param name="frequency" value="1"/> 
 	<param name="ini_file" value="$(find odom_data_adapter)/maps/map.ini"/> 
-	<param name="map_file" value="$(find odom_data_adapter)/maps/map.simplemap"/> 
+	<param name="map_file" value="$(find odom_data_adapter)/maps/alma.simplemap"/> 
 	</node>
 	
 	<!-- Place map frame at odometry frame -->
@@ -16,14 +16,15 @@
 	
 	<!-- Launch Odom_adapter_node -->
 	<node pkg="odom_data_adapter" type="odom_data_adapter" name="odom_data_adapter" output="screen">
-	<param name="var_x"     value="0.0"/> 
-	<param name="var_y"     value="0.0"/> 
-	<param name="var_theta" value="0.0"/> 
+	<!-- 0.5cm x,y 0.1 degree theta-->
+	<param name="var_x"     value="0.000025"/> 
+	<param name="var_y"     value="0.000025"/> 
+	<param name="var_theta" value="0.0000030"/> 
 	</node>
 	
 	<!-- Play laser and groundtruth rosbags -->
-	<arg name="file1"  default="laser_data_sarmis1"/>
-	<arg name="file2" default="groundtruth_sarmis1"/>
+	<arg name="file1"  default="laser_data_alma"/>
+	<arg name="file2" default="groundtruth_alma"/>
 	<arg name="path" default="/home/fer/.ros/"/>
 	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file2).bag $(arg path)$(arg file1).bag" />
 	
