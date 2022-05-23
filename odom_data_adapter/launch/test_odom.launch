@@ -19,7 +19,10 @@
 	<!-- 0.5cm x,y 0.1 degree theta-->
 	<param name="var_x"     value="0.000025"/> 
 	<param name="var_y"     value="0.000025"/> 
-	<param name="var_theta" value="0.0000030"/> 
+	<param name="var_theta" value="0.000003" /> 
+	<!--param name="var_x"     value="0.0"/--> 
+	<!--param name="var_y"     value="0.0"/--> 
+	<!--param name="var_theta" value="0.0"/--> 
 	</node>
 	
 	<!-- Play laser and groundtruth rosbags -->
