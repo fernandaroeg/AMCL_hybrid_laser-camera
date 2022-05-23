@@ -17,7 +17,7 @@
 float var_x, var_y, var_theta;
 float x, y, theta;
 bool  first_pose_received = true;
-//double two_pi = 2*M_PI;
+double two_pi = 2*M_PI;
  
 geometry_msgs::Pose pose_now, pose_prev, initial_pose;
 geometry_msgs::Pose increment, noise, odom_w_noise;
@@ -31,10 +31,10 @@ geometry_msgs::Pose oplus(geometry_msgs::Pose pose1, geometry_msgs::Pose pose2)
 	
 	oplus.position.x     = pose1.position.x + (pose2.position.x * cos(pose1.orientation.w)) - ( pose2.position.y * sin(pose1.orientation.w) );
 	oplus.position.y     = pose1.position.y + (pose2.position.x * sin(pose1.orientation.w)) + ( pose2.position.y * cos(pose1.orientation.w) );
-	oplus.orientation.w  = pose1.orientation.w + pose2.orientation.w;
-	// angle_sum = pose1.orientation.w + pose2.orientation.w;
-	// angle_wrap = angle_sum - two_pi * floor( angle_sum / two_pi);
-	// oplus.orientation.w  = angle_wrap; //The sum of the angles is wrapped so that it is inside the range [0,2pi]
+	//oplus.orientation.w  = pose1.orientation.w + pose2.orientation.w;
+	angle_sum = pose1.orientation.w + pose2.orientation.w;
+	angle_wrap = angle_sum - two_pi * floor( angle_sum / two_pi);
+	oplus.orientation.w  = angle_wrap; //The sum of the angles is wrapped so that it is inside the range [0,2pi]
 	
 	return oplus;
 }
@@ -61,9 +61,6 @@ void poseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
 	theta = yaw;
-	//x = 1;
-	//y = 1;
-	//theta = 0;
 }
 
 //MAIN PROGRAM
@@ -91,8 +88,7 @@ int main(int argc, char **argv)
 	ros::Time current_time, prev_time;
 	
 	//Declare path messages
-	nav_msgs::Path path;	
-	nav_msgs::Path groundtruth_path;
+	nav_msgs::Path path, groundtruth_path;
 	
 	//Node frequency
 	ros::Rate r(10.0);
@@ -206,9 +202,9 @@ int main(int argc, char **argv)
 		odom.pose.covariance[21] = 999;
 		odom.pose.covariance[28] = 999;
 		odom.pose.covariance[35] = var_theta;
-		//odom.twist.twist.linear.x  = vx;
-		//odom.twist.twist.linear.y  = vy;
-		//odom.twist.twist.angular.z = vth;
+		odom.twist.twist.linear.x  = vx;
+		odom.twist.twist.linear.y  = vy;
+		odom.twist.twist.angular.z = vth;
 
 		//publish the msg
 		odom_pub.publish(odom);
