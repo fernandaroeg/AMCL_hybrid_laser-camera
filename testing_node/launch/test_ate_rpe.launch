@@ -1,0 +1,7 @@
+<launch>	
+	<!-- Launch testing_node -->
+	<arg name="file_name"/>
+	<node pkg="testing_node" type="test_ate_rpe.py" name="testing_node" output="screen">
+	<param name="file_name"      value="$(arg file_name)"/>
+	</node>	
+</launch>
