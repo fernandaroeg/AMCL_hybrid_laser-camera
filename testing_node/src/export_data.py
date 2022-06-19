@@ -18,13 +18,13 @@ class ExportPosesTxt:
         self.file_name = rospy.get_param('/testing_node/file_name')
                 
         self.file_amcl = open('data_amcl_'+self.file_name+'.txt', 'w') #create txt file_amcl to export data from callback funct 
-        self.file_amcl.write("Seq, TimeStamp, Xamcl, Yamcl, Thacml, Xamcl_cov, Yamcl_cov, Thamcl_cov\n")
+        self.file_amcl.write("Seq,TimeStamp,Xamcl,Yamcl,Thacml,Xamcl_cov,Yamcl_cov,Thamcl_cov\n")
         
         self.file_gt = open('data_gdtr_'+self.file_name+'.txt', 'w')
-        self.file_gt.write("Seq, TimeStamp, Xgt, Ygt, Thgt\n")
+        self.file_gt.write("Seq,TimeStamp,Xgt,Ygt,Thgt\n")
         
         self.file_odom = open('data_odom_'+self.file_name+'.txt', 'w')
-        self.file_odom.write("Seq, TimeStamp, Xodom, Yodom, Thodm, Xodom_cov, Yodom_cov, Thodom_cov\n")
+        self.file_odom.write("Seq,TimeStamp,Xodom,Yodom,Thodm,Xodom_cov,Yodom_cov,Thodom_cov\n")
     
         rospy.spin()
         self.file_amcl.close()

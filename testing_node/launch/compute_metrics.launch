@@ -1,0 +1,5 @@
+<launch>	
+	<!-- Launch testing_node -->
+	<node pkg="testing_node" type="compute_metrics_plots.py" name="testing_node" output="screen">
+	</node>	
+</launch>
