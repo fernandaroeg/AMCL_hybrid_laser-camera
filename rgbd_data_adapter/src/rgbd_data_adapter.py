@@ -30,6 +30,7 @@ from geometry_msgs.msg import TransformStamped
 import tf
 import struct
 import ctypes
+from datetime import datetime
 
 ####CONFIGURABLE PARAMETERS####
 scenario = "alma" #get this data from launch file
@@ -43,8 +44,8 @@ fy = 271.36999
 
 ####FILE PRE-PROCESSING####
 #1. Obtain images from folder
-path_imgs= "/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/rgbd_data_adapter/data/alma/fullhose1_rgbd/"
-file_rgbd_tstamps ="/home/fer/Desktop/catkin_ws/src/ROS_AMCL_Hybrid_Localization/rgbd_data_adapter/data/alma/fullhose1_rgbd.txt"
+path_imgs         ="/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/rgbd_data_adapter/data/alma/fullhose1_rgbd/"
+file_rgbd_tstamps ="/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/rgbd_data_adapter/data/alma/fullhose1_rgbd.txt"
 
 filenames = []
 rgb_filenames = [ ]
@@ -156,6 +157,7 @@ def fill_image_msg(img_path, seq, t):
     cv_img = cv2.imread(img_path)     #Use CVbridge to convert image in given path to ros img msg
     cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
     height, width = cv_img.shape[:2]
+    
     img_msg_data = bridge.cv2_to_imgmsg(cv_img, encoding="bgr8") #verificar que este bien bgr8
     img_msg_data.header.seq = seq     #Fill additional ros image msg information
     img_msg_data.header.stamp = t
@@ -193,7 +195,7 @@ def fill_CameraInfo_msg(img_path, cx, cy, fx, fy, seq, t):
 
         
 #Function to populate point cloud message
-def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
+def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t, frame):
     #Image pre-processing
     cv_img = cv2.imread(img_path)     #Use CVbridge to convert image in given path to ros img msg
     cv_img = cv2.rotate(cv_img, cv2.ROTATE_90_COUNTERCLOCKWISE) #rotate image to see it straight in rviz
@@ -213,7 +215,7 @@ def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
             point = [x*10, y*10, z*10]
             points.append(point)
     
-    print "points len is", len(points)
+    #print "points cloud len is", len(points)
     #print "points type is", type(points)
     #print "points 1st elem", points[0][0]
     #print "points is", points
@@ -239,7 +241,7 @@ def fill_pointcloud_msg(img_path, cx, cy, fx, fy, seq, t):
     header = std_msgs.msg.Header()
     header.stamp = t
     header.seq = seq
-    header.frame_id =  '/PointCloud' 
+    header.frame_id =  frame 
     pointcloud.header = header
     pointcloud.height = 1
     pointcloud.width = len(points)
@@ -273,33 +275,82 @@ def create_TFmsg(x, y, z, roll, pitch, yaw, frame, child_frame, t, seq):
 
 
 #### CREATE BAG FILE AND FILL ROS MSGS####
-bag = rosbag.Bag('rgbd_data_'+scenario+'.bag', 'w') # Open bag file to write data in it 
-
-#for i in range(0,len(RGB_id1_file_name[0])):
-for i in range(0,500):
-
-    img_path = path_imgs + RGB_id1_file_name[0][i]   
-    dep_path = path_imgs + D_id1_file_name[0][i]
-    tstamp_rgb1 = RGB_id1_file_name[1][i]   
-
-    #Image message
-    img_msg = fill_image_msg(img_path, i, tstamp_rgb1)
+for j in range (1,5):
+    cam_num = j
+    bag = rosbag.Bag('rgbd'+str(cam_num)+'_pc_'+scenario+'.bag', 'w') # Open bag file to write data in it
+    #file = open('rgbd'+str(cam_num)+'_pc_'+scenario+'.txt', 'w') 
     
-    #PointCloud message
-    pointcloud_msg = fill_pointcloud_msg(dep_path, cx, cy, fx, fy, i, tstamp_rgb1)
-   
-    #Calibration camera message 
-    cam_info_msg = fill_CameraInfo_msg(img_path, cx, cy, fx, fy, i, tstamp_rgb1)
+    if j == 1:
+        rgb_file = RGB_id1_file_name
+        d_file   = D_id1_file_name
+        frame = '/pc1'
+    elif j == 2:
+        rgb_file = RGB_id2_file_name
+        d_file   = D_id2_file_name
+        frame = '/pc2'        
+    elif j == 3:
+        rgb_file = RGB_id3_file_name
+        d_file   = D_id3_file_name 
+        frame = '/pc3'
+    elif j == 4:
+        rgb_file = RGB_id4_file_name
+        d_file   = D_id4_file_name
+        frame = '/pc4'
     
-    #TF data 
-    tf_data_im = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/camera/RGB/Image', tstamp_rgb1, i)
-    tf_data_pc = create_TFmsg(0.271, -0.031, 1.045, 90, 0, -45, '/base_link', '/PointCloud', tstamp_rgb1, i) 
-     
-    #Write data in bag
-    bag.write('/camera/RGB/Image', img_msg, tstamp_rgb1)
-    bag.write('/PointCloud', pointcloud_msg, tstamp_rgb1) #CONFIRMAR nombre del topic
-    bag.write('/camera/RGB/CameraInfo', cam_info_msg, tstamp_rgb1)
-    bag.write('/tf', tf_data_im, tstamp_rgb1)
-    bag.write('/tf', tf_data_pc, tstamp_rgb1)#PENDING BUG checar que esto no se sobre escribe, checar rqt_bag
+    #for i in range(0,len(rgb_file[0])):
+    for i in range(0,500):
     
-bag.close()
+        img_path = path_imgs + rgb_file[0][i]   
+        dep_path = path_imgs + d_file[0][i]
+        tstamp_rgb = rgb_file[1][i]      
+        
+        #Calibration camera message 
+        ###cam_info_msg = fill_CameraInfo_msg(img_path, cx, cy, fx, fy, i, tstamp_rgb)
+    
+        #Image message
+        ###img_msg = fill_image_msg(img_path, i, tstamp_rgb)
+        
+        #PointCloud message
+        pointcloud_msg = fill_pointcloud_msg(dep_path, cx, cy, fx, fy, i, tstamp_rgb, frame)
+
+    
+        #TF data 
+        if   j == 1:
+            tf_data_pc = create_TFmsg(0.285,    0.0, 1.045, 0, 0, 0, '/base_link', frame, tstamp_rgb, i) #IMPORTANT el valor de roll lo pase de 90-0 ya que roto las imgs previamente con cv_bridge
+            #Write data in bag                              
+            bag.write(frame, pointcloud_msg, tstamp_rgb)    
+            bag.write('/tf', tf_data_pc, tstamp_rgb)        
+        elif j == 2:                                                               
+            tf_data_pc = create_TFmsg(0.271, -0.031, 1.045, 0, 0, -45, '/base_link', frame, tstamp_rgb, i) 
+            #Write data in bag                              
+            bag.write(frame, pointcloud_msg, tstamp_rgb)    
+            bag.write('/tf', tf_data_pc, tstamp_rgb)        
+        elif j == 3:                                                               
+            tf_data_pc = create_TFmsg(0.271,  0.031, 1.045, 0, 0, 45, '/base_link', frame, tstamp_rgb, i)
+            #Write data in bag                              
+            bag.write(frame, pointcloud_msg, tstamp_rgb)    
+            bag.write('/tf', tf_data_pc, tstamp_rgb)         
+        elif j == 4:                                                               
+            tf_data_pc = create_TFmsg(0.240, -0.045, 1.045, 0, 0, -90, '/base_link', frame, tstamp_rgb, i)   
+            #Write data in bag
+            bag.write(frame, pointcloud_msg, tstamp_rgb)      
+            bag.write('/tf', tf_data_pc, tstamp_rgb)
+            
+        #Write data in bag
+        ###bag.write('/camera/RGB/Image',        img_msg, tstamp_rgb)
+        ###bag.write('/camera/RGB/CamInfo', cam_info_msg, tstamp_rgb)
+        ###bag.write('/tf',                   tf_data_im, tstamp_rgb)
+        
+        bag.write(frame, pointcloud_msg, tstamp_rgb)      
+        bag.write('/tf', tf_data_pc, tstamp_rgb)
+                
+        #Export generated data for debugging purposes
+        #ts = tstamp_rgb.to_time()
+        #ts = int(ts)
+        #ts = datetime.utcfromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') # if "year is out of range" error, try `ts /= 1000`
+        #file.write(ts)
+        #file.write('\n')
+        
+    bag.close()
+    #file.close() #close debugging txt file
+
