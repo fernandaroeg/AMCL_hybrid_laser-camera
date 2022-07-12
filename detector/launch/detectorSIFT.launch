@@ -1,0 +1,5 @@
+<launch>	
+	<!-- Launch testing_node -->
+	<node pkg="detector" type="detectorSIFT.py" name="detectorSIFT" output="screen">
+	</node>	
+</launch>
