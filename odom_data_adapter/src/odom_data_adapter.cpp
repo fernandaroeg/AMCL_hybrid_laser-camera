@@ -11,12 +11,11 @@
 #include<math.h>
 #include<random>
 #include <chrono>
-//NODE that suscribes to topic with groundtruth pose data and injects gaussian noise to it and publishes in odom topic
+//NODE that suscribes to topic with groundtruth pose data and injects gaussian noise to it, and publishes in odom topic
 
 //GLOBAL VARIABLES
 float var_x, var_y, var_theta;
 float x, y, theta;
-float x_amcl, y_amcl, theta_amcl;
 bool  first_pose_received = true;
 double two_pi = 2*M_PI;
  
@@ -64,19 +63,6 @@ void poseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg) {
 	theta = yaw;
 }
 
-void poseCallback_amcl(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg) {
-	x_amcl = msg -> pose.pose.position.x;
-	y_amcl = msg -> pose.pose.position.y;
-	tf::Quaternion q( msg->pose.pose.orientation.x,
-					  msg->pose.pose.orientation.y,
-					  msg->pose.pose.orientation.z,
-					  msg->pose.pose.orientation.w);
-	tf::Matrix3x3 m(q);
-	double roll, pitch, yaw;
-	m.getRPY(roll, pitch, yaw);
-	theta_amcl = yaw;
-}
-
 //MAIN PROGRAM
 int main(int argc, char **argv)
 {
@@ -89,8 +75,7 @@ int main(int argc, char **argv)
 	ros::Subscriber sub_amcl        = nh.subscribe("/amcl_pose", 1000, poseCallback_amcl);
 	ros::Publisher  odom_pub        = nh.advertise<nav_msgs::Odometry>("odom", 1000); 
 	ros::Publisher  path_pub        = nh.advertise<nav_msgs::Path>("trajectory",1000);
-	ros::Publisher  path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);	
-	ros::Publisher  path_pub_amcl   = nh.advertise<nav_msgs::Path>("trajectory_amcl",1000);
+	ros::Publisher  path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);
 	ros::Publisher  init_pose_pub   = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose",1000,true); //latch topic
 	ros::Publisher  odom_pose_pub   = nh.advertise<geometry_msgs::PoseStamped>("odom_pose",1000); 
 	tf::TransformBroadcaster odom_broadcaster;
@@ -104,7 +89,7 @@ int main(int argc, char **argv)
 	ros::Time current_time, prev_time;
 	
 	//Declare path messages
-	nav_msgs::Path path, groundtruth_path, amcl_path;
+	nav_msgs::Path path, groundtruth_path;
 	
 	//Node frequency
 	ros::Rate r(10.0);
@@ -261,18 +246,6 @@ int main(int argc, char **argv)
 		groundtruth_path.header.stamp = current_time;
 		groundtruth_path.header.frame_id = "map";
 		path_pub_gtruth.publish(groundtruth_path);
-		
-		//create path msg w/amcl_pose information
-		geometry_msgs::PoseStamped amcl_pose_stamped;
-		amcl_pose_stamped.pose.position.x  = x_amcl;
-		amcl_pose_stamped.pose.position.y  = y_amcl;
-		amcl_pose_stamped.pose.orientation = g_truth_quat;
-		amcl_pose_stamped.header.stamp     = current_time;
-		amcl_pose_stamped.header.frame_id  = "map";
-		amcl_path.poses.push_back(amcl_pose_stamped);
-		amcl_path.header.stamp = current_time;
-		amcl_path.header.frame_id = "map";
-		path_pub_amcl.publish(amcl_path);
 				
 		r.sleep();
 		prev_time = current_time;
