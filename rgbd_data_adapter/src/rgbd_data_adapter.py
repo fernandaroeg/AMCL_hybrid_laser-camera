@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 #Ubuntu 16.04, ROS Kinetic, python 2.7
-#Script to adapt RGB-D data in png files to ROS msgs in bag file: sensor_msgs/CameraInfo, sensor_msgs/Image, sensor_msgs/PointCloud2
+#Script to adapt RGB-D data in png files to ROS msgs in bag file: sensor_msgs/CameraInfo, sensor_msgs/Image, sensor_msgs/PointCloud2 for 4 RGB-D cameras
 
 ###ROS CameraInfo message format###          ###ROS Image message format###          ###ROS PointCloud2 message format###
 # std_msgs/Header header                     # std_msgs/Header header                # std_msgs/Header header
