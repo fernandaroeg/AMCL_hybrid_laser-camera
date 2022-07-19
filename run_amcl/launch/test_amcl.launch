@@ -3,23 +3,22 @@
 	<param name="/use_sim_time" type="bool" value="true"/>
 	
 	<!--2. Run Rviz-->
-	<!--node pkg="run_amcl" type="run_amcl" name="run_amcl" output="screen"-->
-	<!--/node-->
+	<node pkg="rviz" type="rviz" name="rviz">
+	</node>
 
 	<!--3. Map Server -->
-	<!--node pkg="mrpt_map" type="map_server_node" name="map_server_node" output="screen"-->
-	<!--param name="map_file" value="$(find odom_data_adapter)/maps/alma.simplemap"/--> 
-	<!--/node-->
-	
-	<!--4. Run AMCL node to visualize path -->
-	<!--node pkg="run_amcl" type="run_amcl" name="run_amcl" output="screen"-->
-	<!--/node-->
+    <arg name="map_file" default="$(find odom_data_adapter)/maps/alma.yaml"/>
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
 		
-	<!--5. Play odom-gtruth/laser-depth rosbag-->
+	<!--4. Play odom-gtruth/laser-depth rosbag-->
 	<arg name="file1" default="laser_data_alma"/>
 	<arg name="file2" default="odom_data_alma"/>
 	<arg name="path" default="/home/fer/.ros/"/>
 	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file2).bag $(arg path)$(arg file1).bag" />
+			
+	<!--5. Run AMCL node to visualize estimated path -->
+	<node pkg="run_amcl" type="run_amcl" name="run_amcl" output="screen">
+	</node>
 	
 	<!--6. Launch AMCL -->
 	<arg name="initial_pose_x" default="0.0"/>
