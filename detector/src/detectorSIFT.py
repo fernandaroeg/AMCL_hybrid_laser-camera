@@ -38,9 +38,9 @@ class image_converter:
         self.minDist = 5 # minimun distance between the first and second distance
                         
         
-        #Iniciar detector SIFT
+        #Iniciar detector ORB is a fusion of FAST keypoint detector and BRIEF descriptor
         self.detector = cv2.ORB_create(numFeatures)
-        # crea BFMatcher object
+        # crea BFMatcher object feature matcher
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
            
         self.markers = (list(), list(), list())        
@@ -51,7 +51,7 @@ class image_converter:
             img = cv2.imread(path, 0)
             #cv2.imshow(str("Marker" + str(i)), img)
             self.markers[0].append(img)
-            kp, des = self.detector.detectAndCompute(img, None)
+            kp, des = self.detector.detectAndCompute(img, None)  ######MIGUEL CALCULA EL SIFT de cada una de las marcas guardadas en un folder c/vez que inicializa el detector
             self.markers[1].append(kp)
             self.markers[2].append(des)
         
@@ -79,6 +79,7 @@ class image_converter:
         cv2.waitKey(3)
 
     def findContours(self, img):
+        print ("!!!!!ENTRAMOS a findContours 1/5")
         ##(2) convert to hsv-space, then split the channels
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         h,s,v = cv2.split(hsv)
@@ -86,7 +87,7 @@ class image_converter:
         cv2.imshow("image_h", h)
         cv2.imshow("image_s", s)"""
 
-        #Scv2.imshow("image_v", v)
+        #Scv2.imshow("image_v", v)n 
 
         #(3) threshold the S channel using adaptive method(`THRESH_OTSU`) or fixed thresh
         #threshold(src, thresh, maxval, type[, dst]) = retval, dst
@@ -108,6 +109,7 @@ class image_converter:
         self.findSquares(cnts, canvas, img)
 
     def findSquares(self, cnts, canvas, original_img):
+        print ("!!!!!ENTRAMOS a findsquares 2/5")
         ## A loop for each finded contour
         #print("#########################################")
         #print("contours number is: " + str(len(cnts)))
@@ -187,6 +189,7 @@ class image_converter:
         self.pub_num_marker.publish(n_markers)
 
     def compareImage(self, img):
+        print ("!!!!!ENTRAMOS a compareImage, el + impo. aquí se hace el SIFT 3/5")
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         kp, des = self.detector.detectAndCompute(img, None)
         if len(kp) > 0  and  len(des) > 20:
@@ -239,6 +242,7 @@ class image_converter:
             return -1
 
     def sortCorners(self, img, corners, w_center, h_center):
+        print ("!!!!!casi listos, acomodamos las esquinas detectadas para el mensaje 4/5")
         sorted_corner = [list(), list(), list(), list()]
         #print (corners)
         for corner in corners:
@@ -267,6 +271,7 @@ class image_converter:
             return sorted_corner
 
     def makeMsgMarker(self, numMarker, corners):
+        print ("!!!!!CONGRATS, se manda el mensaje makeMsgMarker 5/5")
         #print("Make msg marker")
         #print(corners)
         new_marker = msg_marker()
@@ -287,18 +292,18 @@ class image_converter:
             return new_marker
         print("Error make marker msg")
 
-    def cornersCloudCallback(self, cloud_data):
-        for corner in cloud_data.pixels_cloud:
-            #print("-- marker --")
-            #print(corner.pixels_corners[0])
-            cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[0].x), int(corner.pixels_corners[0].y)), 3, self.colours[0], -1)
-            cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[1].x), int(corner.pixels_corners[1].y)), 5, self.colours[1], -1)
-            cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[2].x), int(corner.pixels_corners[2].y)), 5, self.colours[2], -1)
-            cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[3].x), int(corner.pixels_corners[3].y)), 5, self.colours[3], -1)
-            """for corner in marker.pixels_corners: # they are four corners
-                #print("--- corner ->" + str(corner))
-                for i in range(0, 2):"""
-        #cv2.imshow(self.img_point_cloud, self.canvas_cloud)
+    #def cornersCloudCallback(self, cloud_data):
+    #    for corner in cloud_data.pixels_cloud:
+    #        #print("-- marker --")
+    #        #print(corner.pixels_corners[0])
+    #        cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[0].x), int(corner.pixels_corners[0].y)), 3, self.colours[0], -1)
+    #        cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[1].x), int(corner.pixels_corners[1].y)), 5, self.colours[1], -1)
+    #        cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[2].x), int(corner.pixels_corners[2].y)), 5, self.colours[2], -1)
+    #        cv2.circle(self.canvas_cloud, (int(corner.pixels_corners[3].x), int(corner.pixels_corners[3].y)), 5, self.colours[3], -1)
+    #        """for corner in marker.pixels_corners: # they are four corners
+    #            #print("--- corner ->" + str(corner))
+    #            for i in range(0, 2):"""
+    #    #cv2.imshow(self.img_point_cloud, self.canvas_cloud)
 
 
 
