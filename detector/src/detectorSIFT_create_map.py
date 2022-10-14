@@ -12,6 +12,8 @@ from geometry_msgs.msg import Point32
 from std_msgs.msg import UInt8
 from sensor_msgs.msg import Image
 import os
+import time
+
 
 class detector:
     def __init__(self, numImages):
@@ -73,6 +75,29 @@ class detector:
             print(e)
         #self.findContours(cv_image)
         #cv2.waitKey(3)
+        
+    def CrossProduct(self, A):
+        X1 = (A[1][0] - A[0][0]) # Stores coefficient of X # direction of vector A[1]A[0]
+        Y1 = (A[1][1] - A[0][1]) # Stores coefficient of Y # direction of vector A[1]A[0]
+        X2 = (A[2][0] - A[0][0]) # Stores coefficient of X # direction of vector A[2]A[0]
+        Y2 = (A[2][1] - A[0][1]) # Stores coefficient of Y # direction of vector A[2]A[0] 
+        return (X1 * Y2 - Y1 * X2) # Return cross product
+ 
+ 
+    def isConvex(self, points): # Function to check if the polygon is convex or not
+        N = len(points) # Stores count of edges in polygon
+        prev = 0 # Stores direction of cross product of previous traversed edges
+        curr = 0 # Stores direction of cross product of current traversed edges
+        for i in range(N):     # Traverse the array
+            temp = [points[i], points[(i + 1) % N],
+                            points[(i + 2) % N]] # Stores three adjacent edges of the polygon
+            curr = self.CrossProduct(temp)  # Update curr
+            if (curr != 0):  # If curr is not equal to 0
+                if (curr * prev < 0):  # If direction of cross product of all adjacent edges are not same
+                    return False
+                else:
+                    prev = curr   # Update curr
+        return True
 
     def findContours(self, img):
         print ("!!!!!ENTRAMOS a findContours 1/5")
@@ -93,11 +118,11 @@ class detector:
 
     def findSquares(self, cnts, canvas, original_img):
         print ("!!!!!ENTRAMOS a findsquares 2/5")
-        num_cuadro = 0 #contador para poner nombre a las imgs de cuadros recortados
+        timedate = time.strftime("%Y%m%d-%H%M%S") 
         for cnt in cnts: # Un bucle por cada contorno      
-            num_cuadro = num_cuadro + 1 #contador para poner nombre a las imgs de cuadros recortados
             arclen = cv2.arcLength(cnt, True)
             approx = cv2.approxPolyDP(cnt, 0.02* arclen, True)  ###IMPORTANTE! esta es la funcion que encuentra los rectangulos  
+           
             if len(approx) == 4: ## solo entramos si es un rectangulo, four corners
                 x1 ,y1, w, h = cv2.boundingRect(approx)
                 area=w*h  
@@ -121,13 +146,22 @@ class detector:
                 w_img_max = w_img[0]+w
                 h_img_max = h_img[0]+h
                 
+
                 #lookup transform funcion de tf que multiplica matrices de transformacion
-                if w >= self.min_w_h_image  and  h >= self.min_w_h_image: #and aspectRatio >= 2.5 and area>100: #la marca debe ser cuadrada y al menos de 10x10pixels
+                approx_list = np.ndarray.tolist(approx)
+                convex_list = []
+                for i in range(0,4):
+                    convex_list.append(approx_list[i][0])
+                print("convex_list is", convex_list)
+                print("approx is ", approx)
+                print("len approx is", len(approx))
+                print("len convex_list is", len(convex_list))
+                if w >= self.min_w_h_image  and  h >= self.min_w_h_image and self.isConvex(convex_list): #and aspectRatio >= 2.5 and area>100: #la marca debe ser cuadrada y al menos de 10x10pixels
                     print("FOUND GOOD SQUARE in red!!!!!")
                     cv2.drawContours(cuadros, [approx], -1, (0, 0, 255), 1, cv2.LINE_AA)
                     crop_img = original_img[h_img[0]:h_img_max, w_img[0]:w_img_max] ## !!!!!!Recortamos la imagen del contorno                    
                     path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-                    square_img = cv2.imwrite(path+'square_det_'+str(num_cuadro)+'.bmp', crop_img)
+                    square_img = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', crop_img)
                 #cv2.rectangle(cuadros, (5,5),(self.original_width-5,self.original_height-5),(0,0,255),1) #cuadro de Miguel para dejar orilla de 5pixeles
                 cv2.rectangle(cuadros, (5,5),(15,15),(255,0,0),1) #medida minima para buscar marcas, cuadro de 10x10pixels
                 visualizar = np.concatenate((orillas, cuadros), axis=1)
@@ -224,7 +258,7 @@ class detector:
         else:
             return -1
             
-
+    
     def sortCorners(self, img, corners, w_center, h_center):
         print ("!!!!!casi listos, acomodamos las esquinas detectadas para el mensaje 4/5")
         sorted_corner = [list(), list(), list(), list()]
