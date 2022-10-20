@@ -25,10 +25,10 @@ class detector:
         self.pub_num_points_cloud = rospy.Publisher('num_points_cloud', num_points_cloud, queue_size=20)
 
         #General detector parameters
-        self.numMarker = numImages
-        self.colours = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) ## BGR coners
+        self.numMarkers = numImages
+        self.corner_colors = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) ## BGR coners
         #Contour detection parameters
-        self.thresh_biary  = cv2.THRESH_BINARY_INV # cv2.THRESH_BINARY_INV busca objetos oscuros con fondo claro y cv2.THRESH_BINARY_ busca objetos claros con fondo oscuro
+        self.thresh_biary  = cv2.THRESH_BINARY # cv2.THRESH_BINARY_INV busca objetos oscuros con fondo claro y cv2.THRESH_BINARY_ busca objetos claros con fondo oscuro
         self.thresh        = 70 # umbral para pasar la imagen a escala de grises
         #Rectangle detection parameters
         self.min_w_h_image = 10 # minimun weidth and height image
@@ -45,8 +45,8 @@ class detector:
         self.bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True) # crea BFMatcher object feature matcher, con normalizacion 1/2 y el crosscheck pending...
         
         #CREAR LISTA DE MARCADORES A BUSCAR
-        self.markers = (list(), list(), list()) #se crea lista de 3D para almacenar img, keypoints, descriptors    
-        for i in range(0, self.numMarker):
+        self.markers = (list(), list(), list()) #se crea lista de 3D para almacenar img, keypoints, descriptors de cada uno de los marcadores 
+        for i in range(0, self.numMarkers):
             marker = str("marker" + str(i))
             path = str("/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"+marker+".png")  #PENDING modificar para tomar path desde launch file  
             print(path)
@@ -80,53 +80,36 @@ class detector:
             contours, contours_img = self.findContours(cv_image)
             
             #2. Find rectangles using the contours
-            found_rectangle, rectangles_img, rectangle = self.findRectangles(contours, contours_img, cv_image)
+            found_rectangle, rectangles_img, rectangle_cropped, rectangle_crop_points = self.findRectangles(contours, contours_img, cv_image)
             
             #3. Compare found rectangle to desired markers with SIFT algorithm
             if found_rectangle == True:
-                marker = self.compareImage(rectangle)
-            
-                #4. 
-                if  marker >= 0: #si ha encontrado una marca
-                    print("WUJUUUU! marca encontrada: " + str(marker))
-                    #cv2.drawContours(canvas, [approx], -1, (0, 0, 255), 4, cv2.LINE_AA)
-                    #text = str("Id:" + str(marker))
-                    #cv2.putText(canvas, text, (w_center, h_center), 2, 1, (255, 0, 0), 2, lineType=cv2.LINE_AA)
+                marker = self.compareImage(rectangle_cropped)  
+                #4. If marker was found sort corners
+                if  marker >= 0: 
+                    corners = self.sortCorners(canvas, approx, w_center, h_center)
+                    #5. Publish Marker Msg in TOPIC
+                    if len(corners) == 4:
+                        msg_marker.DetectedMarkers.append(self.makeMsgMarker(marker, corners))   
+                        msg_marker.header.seq = rospy.Duration()
+                        msg_marker.header.stamp = rospy.Time.now()
+                        msg_marker.header.frame_id = "camera_link"
+                        self.pub_marker.publish(msg_marker)
+                        n_markers = num_markers()
+                        n_markers.header.stamp = rospy.Time.now()
+                        n_markers.number = UInt8(len(msg_marker.DetectedMarkers))
+                        self.pub_num_marker.publish(n_markers)
+                        print("publico -> " + str(len(msg_marker.DetectedMarkers)))
+                        print(new_msg_marker)
                     
-            #5.
-            #corners = self.sortCorners(canvas, approx, w_center, h_center)
-            ##print(corners)
-            #if len(corners) == 4:
-            #    new_msg_marker.DetectedMarkers.append(self.makeMsgMarker(marker, corners)) 
-            #
-            #        
-            ##6. LOGICA PARA PUBLICAR MSG DE marca detectada
-            #if len(new_msg_marker.DetectedMarkers)>0:
-            #    print("publico -> " + str(len(new_msg_marker.DetectedMarkers)))
-            #    new_msg_marker.header.seq = rospy.Duration()
-            #    new_msg_marker.header.stamp = rospy.Time.now()
-            #    new_msg_marker.header.frame_id = "camera_link"
-            #    print(new_msg_marker)
-            #    self.pub_marker.publish(new_msg_marker)
-            #
-            ##7. MOSTRAR LA IMAGEN DETECTADA Y PUBLICAR EN TOPIC
-            ##cv2.imshow(self.img_canvas, canvas)
-            ##print(self.img_canvas)
-            ##cv2.imshow(self.img_canvas, cv2.resize(canvas,(950,540)))
-            ##visualizar deteccion de orillas y cuadros
-            ##square_img = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', found_rectangle)
-            ##cv2.rectangle(cuadros, (5,5),(self.original_width-5,self.original_height-5),(0,0,255),1) #cuadro de Miguel para dejar orilla de 5pixeles
+            ##6. MOSTRAR LA IMAGEN DETECTADA Y PUBLICAR EN TOPIC
+            #cv2.rectangle(cuadros, (5,5),(self.original_width-5,self.original_height-5),(0,0,255),1) #cuadro de Miguel para dejar orilla de 5pixeles
             #cv2.rectangle(cuadros, (5,5),(15,15),(255,0,0),1) #medida minima para buscar marcas, cuadro de 10x10pixels
-            #visualizar = np.concatenate((orillas, cuadros), axis=1)
-            #image_detected = self.bridge.cv2_to_imgmsg(visualizar, encoding="bgr8")
-            #self.pub_projection.publish(image_detected)
-            #image_message = self.bridge.cv2_to_imgmsg(canvas, encoding="passthrough")
-            ##self.pub_projection.publish(image_message)
-            #n_markers = num_markers()
-            #n_markers.header.stamp = rospy.Time.now()
-            #n_markers.number = UInt8(len(new_msg_marker.DetectedMarkers))
-            #self.pub_num_marker.publish(n_markers)
-            #
+            visualizar   = np.concatenate((contours_img, rectangles_img), axis=1)
+            detector_img = self.bridge.cv2_to_imgmsg(visualizar, encoding="bgr8")
+            self.pub_projection.publish(detector_img)
+
+            
         except CvBridgeError as e:
             print(e)
         
@@ -170,23 +153,24 @@ class detector:
         timedate = time.strftime("%Y%m%d-%H%M%S") 
         new_msg_marker = messagedet()
         found_rectangle = False  
-        rectangle = np.zeros((100,100,3), dtype=np.uint8) #return empty img
+        rectangle_crop_img = np.zeros((100,100,3), dtype=np.uint8) #return empty img
         rectangles_img = original_img
+        rectangle_points = 0
         
         for cnt in contours: # Un bucle por cada contorno      
             arclen = cv2.arcLength(cnt, True)
-            approx = cv2.approxPolyDP(cnt, 0.02* arclen, True)  ###IMPORTANTE! esta es la funcion que encuentra los rectangulos  
+            rectangle_points = cv2.approxPolyDP(cnt, 0.02* arclen, True)  ###IMPORTANTE! esta es la funcion que encuentra los rectangulos  
            
-            if len(approx) == 4: ## solo entramos si es un rectangulo, four corners
-                x1 ,y1, w, h = cv2.boundingRect(approx)
+            if len(rectangle_points) == 4: ## solo entramos si es un rectangulo, four corners
+                x1 ,y1, w, h = cv2.boundingRect(rectangle_points)
                 area=w*h  
                 aspectRatio = float(w)/h
                 aspectRatio2 = float(h)/w
-                rectangles_img = cv2.drawContours(original_img, [approx], -1, (255, 0, 0), 1, cv2.LINE_AA)
+                rectangles_img = cv2.drawContours(original_img, [rectangle_points], -1, (255, 0, 0), 1, cv2.LINE_AA)
                 #hacemos calculos para recortar
                 w_img_ = list()
                 h_img_ = list()
-                for point in approx:
+                for point in rectangle_points:
                     w_img_.append(point[0][0])
                     h_img_.append(point[0][1])
                     canvas = contours_img
@@ -198,7 +182,7 @@ class detector:
                 w_center = w_img[0] + int(w/2)
                 h_center = h_img[0] + int(h/2)
                 #Las sig. 4 lineas son para adaptar el formato de la lista de puntos a la funcion isconvex
-                approx_list = np.ndarray.tolist(approx)
+                approx_list = np.ndarray.tolist(rectangle_points)
                 convex_list = []
                 for i in range(0,4):
                     convex_list.append(approx_list[i][0])
@@ -206,13 +190,13 @@ class detector:
                 #CONDICIONES PARA FILTRAR CUADROS tam minimo y poligono convexo
                 if w >= self.min_w_h_image  and  h >= self.min_w_h_image and self.isConvex(convex_list): #and aspectRatio <= 1.5 and aspectRatio2 <= 2 and area>250:
                     #print("FOUND GOOD SQUARE in red!!!!!")
-                    rectangles_img =cv2.drawContours(rectangles_img, [approx], -1, (0, 0, 255), 1, cv2.LINE_AA)
-                    rectangle = original_img[h_img[0]:h_img_max, w_img[0]:w_img_max] ## !!!!!!Recortamos la imagen del contorno   
+                    rectangles_img =cv2.drawContours(rectangles_img, [rectangle_points], -1, (0, 0, 255), 1, cv2.LINE_AA)
+                    rectangle_crop_img = original_img[h_img[0]:h_img_max, w_img[0]:w_img_max] ## !!!!!!Recortamos la imagen del contorno   
                     found_rectangle = True
                     path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-                    rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle)
+                    rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img)
                     
-        return found_rectangle, rectangles_img, rectangle
+        return found_rectangle, rectangles_img, rectangle_crop_img, rectangle_points
 
     def compareImage(self, img):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -226,7 +210,7 @@ class detector:
             matches = list()
             dist = list()
             count = 0
-            for i in range (0, self.numMarker): #vamos a comparar la img rect detectada con todos los markers deseados
+            for i in range (0, self.numMarkers): #vamos a comparar la img rect detectada con todos los markers deseados
                 marches_ = self.bf.match(self.markers[2][i], des)
                 if len(marches_) >= self.minNumMatches: # si no hay minimo 10 coincidencias se descarta
                     matches.append(marches_)
@@ -268,6 +252,10 @@ class detector:
                         img3 = cv2.drawMatches(self.markers[0][pos[j]], self.markers[1][pos[j]], img, kp, matches[j][:self.numMatches], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
                         #cv2.imshow("Classifed Marker", img3) esta muestra la clasificacion
                         return pos[j]
+                
+                #cv2.drawContours(canvas, [approx], -1, (0, 0, 255), 4, cv2.LINE_AA)
+                #text = str("Id:" + str(marker))
+                #cv2.putText(canvas, text, (w_center, h_center), 2, 1, (255, 0, 0), 2, lineType=cv2.LINE_AA)
             else:
                 print("there are not valid matches")
                 return -1
@@ -283,19 +271,19 @@ class detector:
         for corner in corners:
             if corner[0][0] <= w_center and corner[0][1] <= h_center: # primer cuadrante
                 sorted_corner[0] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.colours[0], -1)
+                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[0], -1)
                 #print("First Cuadrant")
             elif corner[0][0] > w_center and corner[0][1] <= h_center: # segundo cuadrante
                 sorted_corner[1] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.colours[1], -1)
+                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[1], -1)
                 #print("Second Cuadrant")
             elif corner[0][0] > w_center and corner[0][1] > h_center: # tercero cuadrante
                 sorted_corner[2] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.colours[2], -1)
+                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[2], -1)
                 #print("Third Cuadrant")
             elif corner[0][0] <= w_center and corner[0][1] > h_center: # tercero cuadrante
                 sorted_corner[3] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.colours[3], -1)
+                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[3], -1)
                 #print("Fourth Cuadrant")
             else:
                 print("Error of Cuadrant")
@@ -305,12 +293,12 @@ class detector:
             #print(sorted_corner)
             return sorted_corner
 
-    def makeMsgMarker(self, numMarker, corners):
+    def makeMsgMarker(self, numMarkers, corners):
         print ("!!!!!CONGRATS, se manda el mensaje makeMsgMarker 5/5")
         #print("Make msg marker")
         #print(corners)
         new_marker = msg_marker()
-        #new_marker = [corners, 0, 0, numMarker]
+        #new_marker = [corners, 0, 0, numMarkers]
         for corner in corners:
             pixel = Point32()
             #print(corner)
@@ -322,7 +310,7 @@ class detector:
         else:
             new_marker.map = UInt8(0)
             new_marker.sector = UInt8(0)
-            new_marker.ID = UInt8(numMarker)
+            new_marker.ID = UInt8(numMarkers)
             #print(new_marker)
             return new_marker
         print("Error make marker msg")
