@@ -28,13 +28,13 @@ class detector:
         self.numMarkers = numImages
         self.corner_colors = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) ## BGR coners
         #Contour detection parameters
-        self.thresh_biary  = cv2.THRESH_BINARY # cv2.THRESH_BINARY_INV busca objetos oscuros con fondo claro y cv2.THRESH_BINARY_ busca objetos claros con fondo oscuro
-        self.thresh        = 70 # umbral para pasar la imagen a escala de grises
+        self.thresh_binary  = cv2.THRESH_BINARY_INV # cv2.THRESH_BINARY_INV busca objetos oscuros con fondo claro y cv2.THRESH_BINARY busca objetos claros con fondo oscuro
+        #self.thresh        = 30 # umbral para pasar la imagen a escala de grises #PENDG al agregar otsi thresh este param ya no es necesario
         #Rectangle detection parameters
         self.min_w_h_image = 10 # minimun weidth and height image
         #SIFT parameters
-        numFeatures        = 200 # max image features numbers
-        self.numMatches    = 15
+        numFeatures        = 100 # max image features numbers
+        self.numMatches    = 50
         self.minNumMatches = 15
         self.maxDist        = 60
         self.minDist        = 5 # minimun distance between the first and second distance   
@@ -67,17 +67,8 @@ class detector:
             self.original_width  = cv_image.shape[1]
             self.original_height = cv_image.shape[0]
             
-            #BORRAR PRUEBAS FER
-            #cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-            #kp, des = self.detector.detectAndCompute(self.img, None) #find keypoints and descriptors
-            #kp2, des2 = self.detector.detectAndCompute(cv_image, None)
-            #  
-            #matches = self.bf.match(des, des2)
-            #matches = sorted(matches, key = lambda x:x.distance) #Find matches with 2nd images
-            #self.img3 = cv2.drawMatches(self.img, kp, cv_image, kp2, matches[:600], cv_image, flags=2)
-            
             #1. Find contours in the image received from topic
-            contours, contours_img = self.findContours(cv_image)
+            contours, contours_img, threshold_img = self.findContours(cv_image)
             
             #2. Find rectangles using the contours
             found_rectangle, rectangles_img, rectangle_cropped, rectangle_crop_points = self.findRectangles(contours, contours_img, cv_image)
@@ -105,10 +96,10 @@ class detector:
             ##6. MOSTRAR LA IMAGEN DETECTADA Y PUBLICAR EN TOPIC
             #cv2.rectangle(cuadros, (5,5),(self.original_width-5,self.original_height-5),(0,0,255),1) #cuadro de Miguel para dejar orilla de 5pixeles
             #cv2.rectangle(cuadros, (5,5),(15,15),(255,0,0),1) #medida minima para buscar marcas, cuadro de 10x10pixels
-            visualizar   = np.concatenate((contours_img, rectangles_img), axis=1)
+            contours_concat = np.concatenate((threshold_img, contours_img), axis=1)
+            visualizar   = np.concatenate((contours_concat, rectangles_img), axis=1)
             detector_img = self.bridge.cv2_to_imgmsg(visualizar, encoding="bgr8")
             self.pub_projection.publish(detector_img)
-
             
         except CvBridgeError as e:
             print(e)
@@ -120,8 +111,8 @@ class detector:
         Y2 = (A[2][1] - A[0][1]) # Stores coefficient of Y # direction of vector A[2]A[0] 
         return (X1 * Y2 - Y1 * X2) # Return cross product
  
-    def isConvex(self, points): # Function to check if the polygon is convex or not
-        N = len(points) # Stores count of edges in polygon
+    def isConvex(self, points): # Function to check if the polygon is convex or not https://www.geeksforgeeks.org/check-if-given-polygon-is-a-convex-polygon-or-not/
+        N = len(points) # Stores numMarkersMatched of edges in polygon
         prev = 0 # Stores direction of cross product of previous traversed edges
         curr = 0 # Stores direction of cross product of current traversed edges
         for i in range(N):     # Traverse the array
@@ -140,14 +131,20 @@ class detector:
         hsv = cv2.cvtColor(blurred_img, cv2.COLOR_BGR2HSV) #convert to hsv color space
         h,s,v = cv2.split(hsv) #split the channels
         
-        th, threshed = cv2.threshold(v, self.thresh, 255, self.thresh_biary) #define threshold
+        #th, threshed = cv2.threshold(v, self.thresh, 255, self.thresh_binary) #define threshold
+        th, threshed = cv2.threshold(v, 0, 255, self.thresh_binary | cv2.THRESH_OTSU)     
+        
+        v_bgr = cv2.cvtColor(v, cv2.COLOR_GRAY2BGR) #convert thresh img to 3 channels to concatenate
+        v_bgr = np.concatenate((hsv, v_bgr), axis=1)
+        threshed_bgr = cv2.cvtColor(threshed, cv2.COLOR_GRAY2BGR) #convert thresh img to 3 channels to concatenate
+        threshold_img = np.concatenate((v_bgr, threshed_bgr), axis=1)
+
         contours = cv2.findContours(threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]## contours is a list with len iqual to contours number, find contours using threshold
 
         contours_img  = img.copy()
         contours_img = cv2.drawContours(contours_img, contours, -1, (0,255,0), 1)
 
-        #self.findRectangles(contours, contours_img, img) #cts is the return of this fnct, contours_img is a copy of the original img, img is the img coming from topic
-        return contours, contours_img
+        return contours, contours_img, threshold_img
 
     def findRectangles(self, contours, contours_img, original_img):
         timedate = time.strftime("%Y%m%d-%H%M%S") 
@@ -194,7 +191,7 @@ class detector:
                     rectangle_crop_img = original_img[h_img[0]:h_img_max, w_img[0]:w_img_max] ## !!!!!!Recortamos la imagen del contorno   
                     found_rectangle = True
                     path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-                    rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img)
+                    #rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img) #PENDING NOT EXPORT
                     
         return found_rectangle, rectangles_img, rectangle_crop_img, rectangle_points
 
@@ -202,65 +199,52 @@ class detector:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         kp, des = self.detector.detectAndCompute(img, None)
         if len(kp) > 0  and  len(des) > 20:
-            print("#####Tamano de la Img que se va a Comparar#####")
-            print("img[" + str(img.shape[0]) + ", " + str(img.shape[1]) + "]")
-
-            # Match descriptors.
-            pos = list()
-            matches = list()
+            print("#####Croped rectangle to be compared#####"+"img[" + str(img.shape[0]) + ", " + str(img.shape[1]) + "]")
+            print("num kps:" + str(len(kp)) + "num des:" + str(len(des)))
+            minFeat_matches_found = list()
+            markerFoundID = list()
             dist = list()
-            count = 0
+            numMarkersMatched = 0
             for i in range (0, self.numMarkers): #vamos a comparar la img rect detectada con todos los markers deseados
-                marches_ = self.bf.match(self.markers[2][i], des)
-                if len(marches_) >= self.minNumMatches: # si no hay minimo 10 coincidencias se descarta
-                    matches.append(marches_)
-                    matches[count] = sorted(matches[count], key = lambda x:x.distance)
-                    pos.append(i)
+                matches_found = self.bf.match(self.markers[2][i], des)
+                print("Comparing croped rect to marker", i, "Num of matches is", len(matches_found))
+                
+                if len(matches_found) >= self.minnumMarkersMatchedes: 
+                    minFeat_matches_found.append(matches_found) #almacenamos en 1 lista los matches que cumplen el min requerido de features
+                    
+                    minFeat_matches_found[numMarkersMatched] = sorted(minFeat_matches_found[numMarkersMatched], key = lambda x:x.distance) #extract distance from matched points https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html
+                    markerFoundID.append(i) #num marker con el que se hizo match
                     dist.append(list())             
-                    for m in matches[count]:
-                        dist[count].append(m.distance)
-                    count += 1
-                #else:
-                    #print("no valid matches " + str(i))
-
-            if len(pos) > 1: # al menos tiene que haber una, FER dos para que se puede hacer la resta poseDistShorted[1] - poseDistShorted[0]
-                # Coincidencias.
+                    for m in minFeat_matches_found[numMarkersMatched]:
+                        dist[numMarkersMatched].append(m.distance) #meter distancias a una lista 
+                    numMarkersMatched += 1  #numMarkersMatched es el numero de markers para los que se encontro coincidencia c/el rectangulo en cuestion 
+                    
+            # Coincidencias.
+            if numMarkersMatched>0: #si se encontro al menos 1 coincidencia entonces...
                 poseDist = list()
-                for i in range (0, len(pos)):
-                    poseDist.append(int(sum(dist[i][:(self.numMatches - 1)])/self.numMatches)) 
-                    cncd = int (len(matches[i]) * 100) / int (len(self.markers[1][i]))
-                    print("des" + str(pos[i]) + ": " + str(len(self.markers[1][i])) + "  ,des: " + str(len(kp)) + "  ,matches: " + str(len(matches[i])) + " -> " + str(cncd) + ", d(Total): " + str(int(sum(dist[i])/len(dist[i]))) + " , d(:" + str(self.numMatches) + ")-> " + str(poseDist[i]) + " , d(:19)-> " + str(int(sum(dist[i][:19])/20)) + " , d(:39)-> " + str(int(sum(dist[i][:39])/40)))
+                for i in markerFoundID: #analizamos cada uno de los markers
+                    poseDist.append(int(sum(dist[i][:(self.numMarkersMatched - 1)])/self.numMarkersMatched)) #promedio de distancia, suma de la distancia de los encontrados entre el total de encontrados
                 
-                poseDistShorted = sorted(poseDist)
-                print("Debugging")
-                print("pos es", pos)
-                print("pos len es",   len(pos))
-                print("pos type es", type(pos))
-                print("poseDistShorted es", poseDistShorted)
-                print("poseDistShorted len es", len(poseDistShorted))
-                print("poseDistShorted type", type(poseDistShorted))
-                print("poseDistShorted[1] es", poseDistShorted[1])
-                print("poseDistShorted[0] es", poseDistShorted[0])
-                
+                poseDistShorted = sorted(9)
                 if (poseDistShorted[1] - poseDistShorted[0]) < self.minDist: # distancia minima entre el primero y el segundo con menos distancia
                     print("no min distance" )
                     return -1
-
-                for j in range (0, len(pos)):
-                    if poseDist[j] == poseDistShorted[0] and poseDistShorted[0] <= self.maxDist:
-                        #print("***** It is marker: " + str(pos[j]))
-                        img3 = cv2.drawMatches(self.markers[0][pos[j]], self.markers[1][pos[j]], img, kp, matches[j][:self.numMatches], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-                        #cv2.imshow("Classifed Marker", img3) esta muestra la clasificacion
-                        return pos[j]
                 
+                for j in range (0, len(markerFoundID)):
+                    if poseDist[j] == poseDistShorted[0] and poseDistShorted[0] <= self.maxDist:
+                        print("***** It is marker: " + str(markerFoundID[j]))
+                        img3 = cv2.drawMatches(self.markers[0][markerFoundID[j]], self.markers[1][markerFoundID[j]], img, kp, matches[j][:self.numMarkersMatchedes], None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+                        cv2.imshow("Classifed Marker", img3) #esta muestra la clasificacion
+                        return markerFoundID[j]     
                 #cv2.drawContours(canvas, [approx], -1, (0, 0, 255), 4, cv2.LINE_AA)
                 #text = str("Id:" + str(marker))
                 #cv2.putText(canvas, text, (w_center, h_center), 2, 1, (255, 0, 0), 2, lineType=cv2.LINE_AA)
+                crop_sift_to_marker = cv2.drawMatches(self.markers[0][i], self.markers[1][i], img, kp, matches_found[:600], img, flags=2)
+                path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
+                sift_export = cv2.imwrite(path+'sift_'+str(time.strftime("%Y%m%d-%H%M%S"))+'.bmp', crop_sift_to_marker)  
             else:
-                print("there are not valid matches")
+                print("no valid matches for marker:" + str(i))
                 return -1
-                #img3 = cv2.drawMatches(self.marker0,self.kp0,img,kp,matches[:60],None,flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-                #plt.imshow(img3),plt.show()
         else:
             return -1
              
@@ -294,14 +278,12 @@ class detector:
             return sorted_corner
 
     def makeMsgMarker(self, numMarkers, corners):
-        print ("!!!!!CONGRATS, se manda el mensaje makeMsgMarker 5/5")
         #print("Make msg marker")
         #print(corners)
         new_marker = msg_marker()
         #new_marker = [corners, 0, 0, numMarkers]
         for corner in corners:
             pixel = Point32()
-            #print(corner)
             pixel.x = corner[0]
             pixel.y = corner[1]
             pixel.z = 0
@@ -316,8 +298,8 @@ class detector:
         print("Error make marker msg")
 
 def main(args):
-    rospy.init_node('detector_SILF', anonymous=True)
-    detector(6)  #num self.imgs con las marcas
+    rospy.init_node('detector_SIFT', anonymous=True)
+    detector(5)  #num imgs de marcas a buscar
     try:
         rospy.spin()
     except KeyboardInterrupt:
