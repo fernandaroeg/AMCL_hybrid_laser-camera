@@ -4,9 +4,8 @@ import sys
 import rospy
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 from cv_bridge import CvBridge, CvBridgeError
-from detector.msg import messagedet, pixels_cloud, pixels_corners, num_markers, num_points_cloud
+from detector.msg import messagedet, num_markers
 from detector.msg import marker as msg_marker
 from geometry_msgs.msg import Point32
 from std_msgs.msg import UInt8
@@ -16,42 +15,38 @@ import time
 
 
 class detector:
-    def __init__(self, numImages):
+    def __init__(self):
         #ROS configuration
         self.bridge = CvBridge()
-        self.pub_marker = rospy.Publisher('detected_markers', messagedet, queue_size=1)
+        self.pub_marker     = rospy.Publisher('detected_markers', messagedet, queue_size=1)
         self.pub_projection = rospy.Publisher('detector_img', Image, queue_size=1)
         self.pub_num_marker = rospy.Publisher('num_detecte_markers', num_markers, queue_size=10)
-        self.pub_num_points_cloud = rospy.Publisher('num_points_cloud', num_points_cloud, queue_size=20)
-
-        #General detector parameters
-        self.numMarkers = numImages
-        self.corner_colors = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) ## BGR coners
-        #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY_INV # cv2.THRESH_BINARY_INV busca objetos oscuros con fondo claro y cv2.THRESH_BINARY busca objetos claros con fondo oscuro
-        #self.thresh        = 30 # umbral para pasar la imagen a escala de grises #PENDG al agregar otsi thresh este param ya no es necesario
-        #Rectangle detection parameters
-        self.min_w_h_image = 10 # minimun weidth and height image
-        #SIFT parameters
-        numFeatures        = 100 # max image features numbers
-        self.minNumMatches = 15
-        self.maxDist        = 60
-        self.minDist        = 5 # minimun distance between the first and second distance   
+       
+        #Parameters SETUP
+        self.numMarkers     = rospy.get_param('/detectorSIFT/num_markers')
+        self.corner_colors  = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) #BGR coners
+        self.export_img_det = True
+        self.export_path    = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
+        
+        #Contour detection parameters, THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
+        self.thresh_binary  = cv2.THRESH_BINARY_INV 
+        #Rectangle detection parameters minimun width and height for images to loook
+        self.min_w_h_image = 10 
+        #Min number of features matched between analyzed rectangle and stored marker to be consider as a detection
+        self.minNumMatches = 10
         
         #INICIALIZAR SIFT
-        #self.detector = cv2.ORB_create(numFeatures) #Iniciar detector ORB is a fusion of FAST keypoint detector and BRIEF descriptor
-        self.detector = cv2.xfeatures2d.SIFT_create() #PENDING cambio importante a registrar en memoria sift feats en vez de orb
-        self.bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True) # crea BFMatcher object feature matcher, con normalizacion 1/2 y el crosscheck pending...
+        self.SIFTdetector = cv2.xfeatures2d.SIFT_create()
         
         #CREAR LISTA DE MARCADORES A BUSCAR
-        self.markers = (list(), list(), list()) #se crea lista de 3D para almacenar img, keypoints, descriptors de cada uno de los marcadores 
+        self.markers = (list(), list(), list()) #se crea lista3D para almacenar img, keypoints, descriptors de cada uno de los marcadores 
         for i in range(0, self.numMarkers):
-            marker = str("marker" + str(i))
-            path = str("/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"+marker+".png")  #PENDING modificar para tomar path desde launch file  
+            markers_path = rospy.get_param('/detectorSIFT/markers_path')
+            path = str(markers_path + "marker" + str(i) +".png") 
             print(path)
             img = cv2.imread(path, 0)
             self.markers[0].append(img)
-            kp, des = self.detector.detectAndCompute(img, None)
+            kp, des = self.SIFTdetector.detectAndCompute(img, None)
             self.markers[1].append(kp)
             self.markers[2].append(des)   
         print("total images in folder: " + str(len(self.markers[0])))
@@ -63,8 +58,6 @@ class detector:
     def callback(self, data):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            self.original_width  = cv_image.shape[1]
-            self.original_height = cv_image.shape[0]
             
             #1. Find contours in the image received from topic
             contours, contours_img, threshold_img = self.findContours(cv_image)
@@ -72,15 +65,16 @@ class detector:
             #2. Find rectangles using the contours
             found_rectangle, rectangles_img, rectangle_cropped, rectangle_crop_points, rect_w_center, rect_h_center = self.findRectangles(contours, contours_img, cv_image)
             
-            #3. Compare found rectangle to desired markers with SIFT algorithm
+            #3. Compare found rectangle to markers stored in self.markers
             if found_rectangle == True:
-                markerID = self.compareImage(rectangle_cropped)  
+                markerID = self.compareImage(rectangle_cropped)
+                
                 #4. If marker was found sort corners
                 if  markerID >= 0: 
                     corners = self.sortCorners(cv_image, rectangle_crop_points, rect_w_center, rect_h_center)
                     #5. Publish Marker Msg in TOPIC
                     if len(corners) == 4:
-                        msg_marker = messagedet()
+                        msg_marker = messagedet() 
                         msg_marker.DetectedMarkers.append(self.makeMsgMarker(markerID, corners))   
                         msg_marker.header.seq = rospy.Duration()
                         msg_marker.header.stamp = rospy.Time.now()
@@ -127,20 +121,23 @@ class detector:
         return True
 
     def findContours(self, img):
-        blurred_img = cv2.GaussianBlur(img, (5,5), 0)  #PENDING PRUEBAS FER add gaussian filter, to improve border detection PENDING
+        #1. Change color space and extract gray channel
+        blurred_img = cv2.GaussianBlur(img, (5,5), 0)  
         hsv = cv2.cvtColor(blurred_img, cv2.COLOR_BGR2HSV) #convert to hsv color space
         h,s,v = cv2.split(hsv) #split the channels
         
-        #th, threshed = cv2.threshold(v, self.thresh, 255, self.thresh_binary) #define threshold
-        th, threshed = cv2.threshold(v, 0, 255, self.thresh_binary | cv2.THRESH_OTSU)     
+        #2. Apply umbralization 
+        th, threshed = cv2.threshold(v, 0, 255, self.thresh_binary | cv2.THRESH_OTSU) #Use Otsu automatic thresholding value 
         
+        #3. Find Contours in the umbralized image
+        contours = cv2.findContours(threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]## contours is a list with len = contours number, find contours using threshold
+        
+        #Export images of color space change, grayscale and thresholding 
         v_bgr = cv2.cvtColor(v, cv2.COLOR_GRAY2BGR) #convert thresh img to 3 channels to concatenate
         v_bgr = np.concatenate((hsv, v_bgr), axis=1)
         threshed_bgr = cv2.cvtColor(threshed, cv2.COLOR_GRAY2BGR) #convert thresh img to 3 channels to concatenate
         threshold_img = np.concatenate((v_bgr, threshed_bgr), axis=1)
-
-        contours = cv2.findContours(threshed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]## contours is a list with len iqual to contours number, find contours using threshold
-
+        #Export image of contour detection
         contours_img  = img.copy()
         contours_img = cv2.drawContours(contours_img, contours, -1, (0,255,0), 1)
 
@@ -148,7 +145,6 @@ class detector:
 
     def findRectangles(self, contours, contours_img, original_img):
         timedate = time.strftime("%Y%m%d-%H%M%S") 
-        new_msg_marker = messagedet()
         found_rectangle = False  
         rectangle_crop_img = np.zeros((100,100,3), dtype=np.uint8) #return empty img
         rectangles_img = original_img
@@ -156,13 +152,10 @@ class detector:
         
         for cnt in contours: # Un bucle por cada contorno      
             arclen = cv2.arcLength(cnt, True)
-            rectangle_points = cv2.approxPolyDP(cnt, 0.02* arclen, True)  ###IMPORTANTE! esta es la funcion que encuentra los rectangulos  
+            rectangle_points = cv2.approxPolyDP(cnt, 0.02* arclen, True)  ###IMPORTANTE! esta es la funcion que encuentra los rectangulos/poligonos
            
             if len(rectangle_points) == 4: ## solo entramos si es un rectangulo, four corners
                 x1 ,y1, w, h = cv2.boundingRect(rectangle_points)
-                area=w*h  
-                aspectRatio = float(w)/h
-                aspectRatio2 = float(h)/w
                 rectangles_img = cv2.drawContours(original_img, [rectangle_points], -1, (255, 0, 0), 1, cv2.LINE_AA)
                 #hacemos calculos para recortar
                 w_img_ = list()
@@ -185,54 +178,45 @@ class detector:
                     convex_list.append(approx_list[i][0])
                     
                 #CONDICIONES PARA FILTRAR CUADROS tam minimo y poligono convexo
-                if w >= self.min_w_h_image  and  h >= self.min_w_h_image and self.isConvex(convex_list): #and aspectRatio <= 1.5 and aspectRatio2 <= 2 and area>250:
-                    #print("FOUND GOOD SQUARE in red!!!!!")
+                if w >= self.min_w_h_image  and  h >= self.min_w_h_image and self.isConvex(convex_list):
                     rectangles_img =cv2.drawContours(rectangles_img, [rectangle_points], -1, (0, 0, 255), 1, cv2.LINE_AA)
-                    rectangle_crop_img = original_img[h_img[0]:h_img_max, w_img[0]:w_img_max] ## !!!!!!Recortamos la imagen del contorno   
+                    rectangle_crop_img = original_img[h_img[0]:h_img_max, w_img[0]:w_img_max] #Recortamos la imagen del contorno   
                     found_rectangle = True
-                    path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-                    #rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img) #PENDING NOT EXPORT
+                    #path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
+                    #rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img)
             else:
                 w_center = 0
                 h_center = 0
                     
         return found_rectangle, rectangles_img, rectangle_crop_img, rectangle_points, w_center, h_center
 
-    def compareImage(self, img):
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        kp, des = self.detector.detectAndCompute(img, None)
+    def compareImage(self, rectangle):
+        rectangle_original = rectangle
+        rectangle = cv2.cvtColor(rectangle, cv2.COLOR_BGR2GRAY)
+        kp, des = self.SIFTdetector.detectAndCompute(rectangle, None)
         
-        #print("####Rectangle to be compared kps:" + str(len(kp)) + " des:" + str(len(des)))
-        print("####Rectangle to be compared")
-        
-        if len(kp) > 0  and  len(des) > 20:
+        if len(kp) > 0 and len(des)>25: #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
             minNumMatches_found = list()
-            ilist = list()
-            dist = list()
-            for i in range(self.numMarkers):
-                print("busted")
-            for i in range(5): #vamos a comparar la img rect detectada con todos los markers deseados                
-                FLANN_INDEX_KDTREE = 1
+            for i in range(self.numMarkers): #compare rectangle to all the markers stored, logic from:https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html         
+                #1. Compute flann matches between rectangle and markers
+                FLANN_INDEX_KDTREE = 1 
                 index_params  = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
                 search_params = dict(checks = 50)
                 flann = cv2.FlannBasedMatcher(index_params, search_params)
-                matches_found = flann.knnMatch(self.markers[2][i],des,k=2) #update matcher from bf to flann in order to perform lowe's ratio test
-                print("i is ", i)
-                print("self.numMarkers is ", self.numMarkers)
-                print("range(0, self.numMarkers) is ", range(0, self.numMarkers))
-                print("Comparing rect to marker", i, "Num matches ", len(matches_found))
-                # store all the good matches as per Lowe's ratio test.
+                matches_found = flann.knnMatch(self.markers[2][i],des,k=2) #updated matcher from bf to flann in order to perform lowe's ratio test
+                print "Comparing rect to marker", i
+                #print "Num unfiltered matches found ", len(matches_found)
+                
+                #2. Store good matches that pass the Lowe's ratio test.
                 good_matches = []
                 for m,n in matches_found:
                     if m.distance < 0.7*n.distance:
                         good_matches.append(m)
                         markerID = i
-                print("Filtered num of matches per Lowe's tests is", len(good_matches))
+                #print("Filtered num of matches per Lowe's tests is", len(good_matches))
                 
-                #1a condicion: solo almacenamos vector de distancia si los matches son mayores a 15
-                #if len(matches_found) >= self.minNumMatches: 
+                #3. If the number of good matches found is >= minNumMatches, then use homography matrix and RANSAC algorithm to detect the marker in the rectangle image
                 MIN_MATCH_COUNT = self.minNumMatches
-                MIN_MATCH_COUNT = 10
                 if len(good_matches)>MIN_MATCH_COUNT:
                     src_pts = np.float32([ self.markers[1][i][m.queryIdx].pt for m in good_matches ]).reshape(-1,1,2)
                     dst_pts = np.float32([ kp[m.trainIdx].pt for m in good_matches ]).reshape(-1,1,2)
@@ -240,25 +224,30 @@ class detector:
                     M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
                     matchesMask = mask.ravel().tolist()
                 
-                    h,w = img.shape
+                    h,w = rectangle.shape
                     pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
                     dst = cv2.perspectiveTransform(pts,M)
                 
-                    marker_detected_by_homography = cv2.polylines(self.markers[0][markerID],[np.int32(dst)],True,(0,255,0),3, cv2.LINE_AA) #draw the detected square in green
-                    #Exportar 
-                    path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-                    sift_export = cv2.imwrite(path+'detected_'+str(time.strftime("%Y%m%d-%H%M%S"))+'.bmp', marker_detected_by_homography) 
-                    print("MARKER FOUND!!!!! wujujuuuuuuuuuuuuu")
-                    print("the marker found ID is", markerID)
+                    #Draw detected marker in the original image 
+                    #marker_detected_by_homography = cv2.polylines(self.markers[0][markerID],[np.int32(dst)],True,(0,255,0),3, cv2.LINE_AA)
+                    #PENDING add id leyend
+                    #marker_detected_by_homography = cv2.polylines(original_img,[np.int32(dst)],True,(0,255,0),3, cv2.LINE_AA)
+                    marker_detected_by_homography = cv2.polylines(rectangle_original,[np.int32(dst)],True,(0,255,0),3, cv2.LINE_AA)                    
+                                        
+                    #Exportar image to folder
+                    if self.export_img_det == True:
+                        sift_export = cv2.imwrite(self.export_path+'detected_'+str(time.strftime("%Y%m%d-%H%M%S"))+'.bmp', marker_detected_by_homography) 
+                    
+                    #Function Output
+                    print "The marker found ID is", markerID
                     return markerID
-                #else:
-                #    print "Not enough matches are found - %d/%d" % (len(good_matches),MIN_MATCH_COUNT)
+                else:
+                    print "      Not enough matches are found - %d/%d" % (len(good_matches),MIN_MATCH_COUNT)
                  
         else:
             return -1
              
     def sortCorners(self, img, corners, w_center, h_center):
-        print ("!!!!!casi listos, acomodamos las esquinas detectadas para el mensaje 4/5")
         sorted_corner = [list(), list(), list(), list()]
         #print (corners)
         for corner in corners:
@@ -283,12 +272,9 @@ class detector:
                 return 0
         else:
             #print("Sorted corners")
-            #print(sorted_corner)
             return sorted_corner
 
     def makeMsgMarker(self, numMarkers, corners):
-        print("CONGRATULATIONSSSSSSSSSSSSSSSSSS!!!! POR FIN se manda Make msg marker")
-        #print(corners)
         new_marker = msg_marker()
         #new_marker = [corners, 0, 0, numMarkers]
         for corner in corners:
@@ -308,7 +294,8 @@ class detector:
 
 def main(args):
     rospy.init_node('detector_SIFT', anonymous=True)
-    detector(5)  #num imgs de marcas a buscar
+    detector()  
+    
     try:
         rospy.spin()
     except KeyboardInterrupt:
