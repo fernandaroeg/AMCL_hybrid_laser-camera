@@ -1,0 +1,5 @@
+<launch>
+	<!-- run depth_to_laser node -->
+	<node pkg="rgbd_data_adapter" type="depth_to_laser_adapter.py" name="depth_to_laser_adapter" output="screen">
+	</node>	
+</launch>
