@@ -24,9 +24,6 @@ class detector:
         self.pub_num_marker = rospy.Publisher('num_detecte_markers', num_markers, queue_size=10)
        
         #2. Parameters SETUP
-        self.numMarkers     = rospy.get_param('/detectorSIFT/num_markers')
-        self.corner_colors  = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) #BGR coners
-        
             #Contour detection parameters
         self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
             #Rectangle detection parameters minimun width and height for images to loook
