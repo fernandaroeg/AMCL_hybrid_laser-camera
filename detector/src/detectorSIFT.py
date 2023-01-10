@@ -29,11 +29,11 @@ class detector:
         self.export_path    = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
         
             #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
+        self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
             #Rectangle detection parameters minimun width and height for images to loook
         self.min_w_h_image = 10 
             #Min number of features matching between analyzed rectangle and stored marker to be consider as a detection
-        self.minNumMatches = 10
+        self.minNumMatches = 8
         
         #3. INICIALIZAR SIFT
         self.SIFTdetector = cv2.xfeatures2d.SIFT_create()
