@@ -30,7 +30,7 @@ class detector:
         self.export_path    = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
         
         #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
+        self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
             #Rectangle detection parameters minimun width and height for images to loook
         self.min_w_h_image = 10 
         
@@ -66,27 +66,10 @@ class detector:
         yolo_img_topic  = rospy.get_param('/detectorYOLO/yolo_img_topic')
         self.image_sub = rospy.Subscriber(yolo_img_topic, Image, self.rgb_img_callback)
         
+        #Inicializar variables de buffer y yolo flag
         self.yolo_detect_flag = False
         self.current_img = (list(), list())
-        
-        ###DEBUGGING TECNICAS DE ENCONTRAR EL RECTANGULO DEL MARKER EN EL CROP DE BBOX
-        #path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-        #img_marker = cv2.imread(path+"marker2_classtvmonitor.png")  # queryiamge
-        #det_yolo = cv2.imread(path+"yolo_det_crop.png") 
-        #det_sift_img = self.compareImage(det_yolo, img_marker)
-        #rectangle_export  = cv2.imwrite(path+'yolo_det_hom_PRUEBA.bmp',det_sift_img)
-        #print "los puntos de la matriz de hom adaptados son", hom_pts      
-        ### Apply template Matching
-        ##res = cv2.matchTemplate(det_yolo,img_marker,cv2.TM_CCOEFF)
-        ##min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-        ### If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
-        ##w = img_marker.shape[0]
-        ##h = img_marker.shape[1]
-        ##top_left = max_loc
-        ##bottom_right = (top_left[0] + w, top_left[1] + h)
-        ##result = cv2.rectangle(det_yolo,top_left, bottom_right, 255, 2)
-        ##rectangle_export  = cv2.imwrite(path+'yolo_det_tmatch_PRUEBA.bmp',result)    
-        
+
 
     def yolo_msg_callback(self, yolo_msg):
         try:
@@ -99,8 +82,8 @@ class detector:
             #self.yolo_detections: 0. class label, 1. probability, 2. xmin, ymin, xmax, ymax, 3. id
             for msg in yolo_msg.bounding_boxes:
                 print "!"
-                if msg.probability > 0.8: #prob detection bigger than 80%
-                    print "80!!"
+                if msg.probability > 0.7: #prob detection bigger than 70%
+                    print "70!!"
                     for j in range(0,len(self.markers[1])):
                         print "%"
                         if msg.Class == self.markers[1][j]: #if the class of a detected objetc matches a marker class then we store yolo info
@@ -146,57 +129,79 @@ class detector:
                             ymax = self.yolo_detections[2][i][3]
                             detection_img_crop = detection_img[ymin:ymax, xmin:xmax] #cut rgb image with yolo detected bounding box corners
                             
-                            det_crop_w, det_crop_h = detection_img_crop.shape[:2]
+                            detection_img_crop_gray = cv2.cvtColor(detection_img_crop, cv2.COLOR_BGR2GRAY) #convertir a escala de grises para dsps obtener height y width con .shape
+                            det_crop_w, det_crop_h = detection_img_crop_gray.shape
                             print "!!!!!!!!!"
                             print "the shape of the bbox img is width", det_crop_w, "height", det_crop_h
+                            #marker_gray = cv2.cvtColor(self.yolo_detections[5][i], cv2.COLOR_BGR2GRAY)
                             marker_img_w, marker_img_h = self.yolo_detections[5][i].shape[:2] 
                             print "the shape of the marker image is width", marker_img_w, "height", marker_img_h
                             print "!!!!!!!!!"
                             if (det_crop_w < marker_img_w/2) or (det_crop_h < marker_img_h/2):  #si bbox crop ims es menor a 0.5marker desechar, no queremos esquinas o pedacitos del marcador
                                 print "error, bounding box is smaller than marker, not useful"
+                                res_export  = cv2.imwrite(path+'det_bbox_crop_BAD_'+str(timedate)+'.bmp',detection_img_crop) 
                             
                             else:
-                                #FIND rectangle in img
+                                
+                                res_export  = cv2.imwrite(path+'det_bbox_crop_GOOD_'+str(timedate)+'.bmp',detection_img_crop) 
+                                #FIND rectangle in img 
+                                self.thresh_binary  = cv2.THRESH_BINARY_INV 
                                 contours, contours_img, threshold_img = self.findContours(detection_img_crop)
+                                #Use both types of binarization
+                                self.thresh_binary  = cv2.THRESH_BINARY
+                                contours2, contours_img2, threshold_img2 = self.findContours(detection_img_crop)
+                                
+                                contours_bin_bininv = contours + contours2                               
+                                
                                 
                                 #PENDING variar un poco las condiciones de los rectangulos
-                                for cnt in contours:
+                                for cnt in contours_bin_bininv:
                                         found_rectangle, rectangles_img, rectangle_cropped, rectangle_crop_points = self.findRectangles(cnt, detection_img_crop)
+                                        
+                                        #PENDING publish message mas corto??
+                                        #3. Compare found rectangle to markers stored in self.markers
+                                        if found_rectangle == True:
+                                            
+                                            print "corners found for object are ", rectangle_crop_points
+                                            #markerID = self.compareImage(rectangle_cropped) 
+                                            markerID =  self.yolo_detections[4][i]
+                                            corners, det_img = self.sortCorners(detection_img_crop, rectangle_crop_points, markerID)
+                                            #5. Publish Marker Msg in TOPIC
+                                            msg_marker = messagedet() 
+                                            msg_marker.DetectedMarkers.append(self.makeMsgMarker(markerID, corners))   
+                                            msg_marker.header.seq = rospy.Duration()
+                                            msg_marker.header.stamp = rospy.Time.now()
+                                            frame_id = rospy.get_param('/detectorYOLO/detection_msg_publish_topic')
+                                            msg_marker.header.frame_id = frame_id
+                                            self.pub_marker.publish(msg_marker)
+                                            
+                                            n_markers = num_markers()
+                                            n_markers.header.stamp = rospy.Time.now()
+                                            n_markers.number = UInt8(len(msg_marker.DetectedMarkers))
+                                            self.pub_num_marker.publish(n_markers)
+                                            print("publico -> " + str(len(msg_marker.DetectedMarkers)))
+                                            print(msg_marker) 
+                                        else:
+                                            print "no good rectangles were found"
+                          
                                 rectangle_export  = cv2.imwrite(path+'yolo_det_rectangles_PRUEBA.bmp',rectangles_img)    
                                 print "se encontro y exporto un rectangulo de bbox croped"
                                 
-                                #PENDING sort corners y publish msg, se puede hacer + compacto?
-                                #sort corners, make msg marke
-                                #corners, det_img = self.sortCorners(cv_image, rectangle_crop_points, markerID)
-                                ##5. Publish Marker Msg in TOPIC
-                                #msg_marker = messagedet() 
-                                #msg_marker.DetectedMarkers.append(self.makeMsgMarker(markerID, corners))   
-                                #msg_marker.header.seq = rospy.Duration()
-                                #msg_marker.header.stamp = rospy.Time.now()
-                                #frame_id = rospy.get_param('/detectorSIFT/detection_msg_publish_topic')
-                                #msg_marker.header.frame_id = frame_id
-                                #self.pub_marker.publish(msg_marker)
-                                #
-                                #n_markers = num_markers()
-                                #n_markers.header.stamp = rospy.Time.now()
-                                #n_markers.number = UInt8(len(msg_marker.DetectedMarkers))
-                                #self.pub_num_marker.publish(n_markers)
-                                #print("publico -> " + str(len(msg_marker.DetectedMarkers)))
-                                #print(msg_marker) 
-                            
-                                ###DEBUGGING DATA####
-                                rectangle_export  = cv2.imwrite(path+'yolo_det_crop_'+str(timedate)+'.bmp',detection_img_crop)
+                                contours_concat = np.concatenate((threshold_img,   contours_img),   axis=1) 
+                                detector_img    = np.concatenate((contours_concat, rectangles_img), axis=1)
+                                print "detector_img type is ", type(detector_img)
+                                result_export  = cv2.imwrite(path+'yolo_det_rectangles_process_'+str(timedate)+'.bmp',detector_img) 
                                 
                             #calculate delay between rgb data transmision and yolo detection
                             #PENDING hacer una funcion de todo esto abajo
-                            delay = img.header.stamp - self.yolo_detections[3][i]
-                            print "the delay is %i %i", delay.secs, delay.nsecs
-                            file = open(path+'yolo_det'+str(timedate)+'.txt', 'w') 
-                            file.write(str(delay.secs))
-                            file.write(".")
-                            file.write(str(delay.nsecs))
-                            file.write('\n')
-                            file.close() #close debugging txt file
+                            #delay = img.header.stamp - self.yolo_detections[3][i]
+                            #print "the delay is", delay.secs, "segs", delay.nsecs, "nanoseg"
+                            #file = open(path+'yolo_det'+str(timedate)+'.txt', 'w') 
+                            #file.write(str(delay.secs))
+                            #file.write(".")
+                            #file.write(str(delay.nsecs))
+                            #file.write('\n')
+                            #file.close() #close debugging txt file
                                      
                 self.yolo_detect_flag == False
                 #PENDING clean image buffer
@@ -354,33 +359,41 @@ class detector:
             print "(Error condition: (kp2) > 0 and len(des2)>25 not met"
             return -1
              
-    def sortCorners(self, img, corners, w_center, h_center):
+    def sortCorners(self, img, corners, markerID):
         sorted_corner = [list(), list(), list(), list()]
-        #print (corners)
+        #find rectangle centroid, (it can be an irregular rectangle so we want the centroid instead of the center) https://docs.opencv.org/3.4/dd/d49/tutorial_py_contour_features.html
+        M = cv2.moments(corners)
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01']/M['m00'])
+        w_center = cx
+        h_center = cy                 
+               
+        #clasify corners according to their position compared to the centroid point
         for corner in corners:
-            if corner[0][0] <= w_center and corner[0][1] <= h_center: # primer cuadrante
+            if corner[0][0] < w_center and corner[0][1] < h_center:   #1er cuadrante, arriba izq, azul
                 sorted_corner[0] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[0], -1)
-                #print("First Cuadrant")
-            elif corner[0][0] > w_center and corner[0][1] <= h_center: # segundo cuadrante
+                corners_img = cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[0], -1) 
+            elif corner[0][0] > w_center and corner[0][1] < h_center: #2do cuadrante, arriba der, verde
                 sorted_corner[1] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[1], -1)
-                #print("Second Cuadrant")
-            elif corner[0][0] > w_center and corner[0][1] > h_center: # tercero cuadrante
+                corners_img = cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[1], -1)
+            elif corner[0][0] > w_center and corner[0][1] > h_center: #3er cuadrante, abajo der, rojo
                 sorted_corner[2] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[2], -1)
-                #print("Third Cuadrant")
-            elif corner[0][0] <= w_center and corner[0][1] > h_center: # tercero cuadrante
+                corners_img = cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[2], -1)
+            elif corner[0][0] < w_center and corner[0][1] > h_center: #4to cuadrante, abajo izq, amarillo
                 sorted_corner[3] = corner[0]
-                cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[3], -1)
-                #print("Fourth Cuadrant")
+                corners_img = cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[3], -1)
             else:
-                print("Error of Cuadrant")
+                print("Error of Cuadrant or a corner equal to centroid point-irregular polygons is best to avoid")
                 return 0
-        else:
-            #print("Sorted corners")
-            #print(sorted_corner)
-            return sorted_corner
+        
+        text = str("ID:" + str(markerID))
+        corners_img = cv2.putText(img, text, (w_center, h_center), 2, 1, (255, 0, 0), 1, lineType=cv2.LINE_AA)
+        corners_img = cv2.drawContours(img, [corners], -1, (0, 255, 255), 1, cv2.LINE_AA) #draw rectangles to be debuged
+        timedate = time.strftime("%Y%m%d-%H%M%S") 
+        path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
+        rectangle_export = cv2.imwrite(path+'corners_img_'+str(timedate)+'.bmp',corners_img)
+        
+        return sorted_corner, corners_img
 
     def makeMsgMarker(self, numMarkers, corners):
         new_marker = msg_marker()
