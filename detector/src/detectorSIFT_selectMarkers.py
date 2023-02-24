@@ -25,7 +25,7 @@ class detector:
        
         #2. Parameters SETUP
             #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
+        self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
             #Rectangle detection parameters minimun width and height for images to loook
         self.min_w_h_image = 10 
         
@@ -55,7 +55,7 @@ class detector:
                     det_img = cv_image
                     
             #4. MOSTRAR Y PUBLICAR IMGS DEL PROCESO           
-            contours_concat = np.concatenate((threshold_img,   contours_img),   axis=1) 
+            contours_concat = np.concatenate((cv_image,   contours_img),   axis=1) 
             visualizar      = np.concatenate((contours_concat, rectangles_img), axis=1)
             detector_img    = self.bridge.cv2_to_imgmsg(visualizar, encoding="bgr8")
             self.pub_projection.publish(detector_img)
