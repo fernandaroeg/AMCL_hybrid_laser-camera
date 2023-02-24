@@ -1,5 +1,5 @@
 <launch>	
-	<!-- Launch testing_node -->
+	<!-- Launch detector SIFT -->
 	<node pkg="detector" type="detectorSIFT.py" name="detectorSIFT" output="screen">
 	
 	<param name="markers_path" value="/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/" />
