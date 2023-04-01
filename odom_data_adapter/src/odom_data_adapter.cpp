@@ -72,7 +72,6 @@ int main(int argc, char **argv)
 	
 	//Declare publishers and suscriber
 	ros::Subscriber sub             = nh.subscribe("g_truth/Pose", 1000, poseCallback);
-	ros::Subscriber sub_amcl        = nh.subscribe("/amcl_pose", 1000, poseCallback_amcl);
 	ros::Publisher  odom_pub        = nh.advertise<nav_msgs::Odometry>("odom", 1000); 
 	ros::Publisher  path_pub        = nh.advertise<nav_msgs::Path>("trajectory",1000);
 	ros::Publisher  path_pub_gtruth = nh.advertise<nav_msgs::Path>("trajectory_gtruth",1000);
