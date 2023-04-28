@@ -6,12 +6,13 @@
 #include<tf/transform_datatypes.h>
 #include<tf/transform_broadcaster.h>
 #include <chrono>
-//NODE that suscribes to topic with amcl pose and publisth the data as path to visualize in Rviz
 
-//GLOBAL VARIABLES
+/*NODE that suscribes to topic with amcl pose and publisth the data as path to visualize in Rviz*/
+
+/*GLOBAL VARIABLES*/
 float x_amcl, y_amcl, theta_amcl;
 
-//FUNCTION DEFINITIONS
+/*FUNCTION DEFINITIONS*/
 void poseCallback_amcl(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &msg) {
 	x_amcl = msg -> pose.pose.position.x;
 	y_amcl = msg -> pose.pose.position.y;
@@ -25,34 +26,34 @@ void poseCallback_amcl(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr 
 	theta_amcl = yaw;
 }
 
-//MAIN PROGRAM
+/*MAIN PROGRAM*/
 int main(int argc, char **argv)
 {
-	//Initialize
+	/*Initialize*/
 	ros::init(argc, argv, "run_amcl");
 	ros::NodeHandle nh;
 	
-	//Declare publishers and suscriber
+	/*Declare publishers and suscriber*/
 	ros::Subscriber sub_amcl        = nh.subscribe("/amcl_pose", 1000, poseCallback_amcl);
 	ros::Publisher  path_pub_amcl   = nh.advertise<nav_msgs::Path>("trajectory_amcl",1000);
 		
-	//Get current time in variable
+	/*Get current time in variable*/
 	ros::Time current_time;
 	
-	//Declare path messages
+	/*Declare path messages*/
 	nav_msgs::Path amcl_path;
 	
-	//Node frequency
+	/*Node frequency*/
 	ros::Rate r(10.0);
 	
 	while(nh.ok()){
-		ros::spinOnce();  //check for incoming messages
-		current_time = ros::Time::now(); //get current time
+		ros::spinOnce();  /*check for incoming messages*/
+		current_time = ros::Time::now(); /*get current time*/
 		
-		//transform theta to quaternion for odom msg
+		/*transform theta to quaternion for odom msg*/
 		geometry_msgs::Quaternion g_truth_quat = tf::createQuaternionMsgFromYaw(theta_amcl);
 		
-		//create path msg w/amcl_pose information
+		/*create path msg w/amcl_pose information*/
 		geometry_msgs::PoseStamped amcl_pose_stamped;
 		amcl_pose_stamped.pose.position.x  = x_amcl;
 		amcl_pose_stamped.pose.position.y  = y_amcl;

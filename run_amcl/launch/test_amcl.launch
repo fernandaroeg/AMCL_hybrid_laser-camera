@@ -7,12 +7,12 @@
 	</node>
 
 	<!--3. Map Server -->
-    <arg name="map_file" default="$(find odom_data_adapter)/maps/alma.yaml"/>
-    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
+    <!--arg name="map_file" default="$(find odom_data_adapter)/maps/alma.yaml"/                        -->
+    <!--node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/   -->
 		
 	<!--4. Play odom-gtruth/laser-depth rosbag-->
-	<arg name="file1" default="laser_data_alma"/>
-	<arg name="file2" default="odom_data_alma"/>
+	<arg name="file1" default="laser_alma"/>
+	<arg name="file2" default="odom5_alma"/>
 	<arg name="path" default="/home/fer/.ros/"/>
 	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file2).bag $(arg path)$(arg file1).bag" />
 			
@@ -24,6 +24,7 @@
 	<arg name="initial_pose_x" default="0.0"/>
 	<arg name="initial_pose_y" default="0.0"/>
 	<arg name="initial_pose_a" default="0.0"/>
+	<arg name="scan_topic" default="/laser" />
 	<node pkg="amcl" type="amcl" name="amcl" output="screen">				
 		<!--Overall Filter Parameters -->
 		<param name="min_particles"       value="100"/>
@@ -42,6 +43,7 @@
 		<param name="gui_publish_rate"    value="-1.0"/>
 		
 		<!-- Laser Parameters -->
+		<remap from="scan" to="$(arg scan_topic)"/>
 		<param name="laser_model_type"          value="likelihood_field"/>
 		<param name="laser_min_range"           value="-1"/>		
 		<param name="laser_max_range"           value="-1"/>
