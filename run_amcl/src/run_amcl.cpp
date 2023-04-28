@@ -7,7 +7,7 @@
 #include<tf/transform_broadcaster.h>
 #include <chrono>
 
-/*NODE that suscribes to topic with amcl pose and publisth the data as path to visualize in Rviz*/
+/**NODE that suscribes to topic with amcl pose and publisth the data as path to visualize in Rviz*/
 
 /*GLOBAL VARIABLES*/
 float x_amcl, y_amcl, theta_amcl;

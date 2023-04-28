@@ -6,7 +6,7 @@
 	<node pkg="rviz" type="rviz" name="rviz">
 	</node>
 
-	<!--3. Map Server -->
+	<!--3. Map Server-->
     <!--arg name="map_file" default="$(find odom_data_adapter)/maps/alma.yaml"/                        -->
     <!--node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/   -->
 		
