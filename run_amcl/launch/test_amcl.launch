@@ -5,7 +5,7 @@
 	<param name="/use_sim_time" type="bool" value="true"/>
 	
 	<!-- Launch Rviz -->
-	<node pkg="rviz" type="rviz" name="rviz" args="-d /home/fer/catkin_ws/src/rodaad/rodaad.rviz">
+	<node pkg="rviz" type="rviz" name="rviz" args="-d /home/fer/catkin_ws/src/amcl_hybrid/run_amcl/test_amcl.rviz">
 	</node>
 
 	<!-- Launch Map-->
