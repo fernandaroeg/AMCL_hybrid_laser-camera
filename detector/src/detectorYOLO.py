@@ -35,7 +35,9 @@ class detector:
         self.min_w_h_image = 10 
         
         #3. INICIALIZAR SIFT
-        self.SIFTdetector = cv2.xfeatures2d.SIFT_create()
+        #self.SIFTdetector = cv2.xfeatures2d.SIFT_create()
+        
+        self.SIFTdetector = cv2.ORB_create()
         #Min number of features matching between analyzed rectangle and stored marker to be consider as a detection
         self.minNumMatches = 7
         
@@ -43,12 +45,12 @@ class detector:
         self.markers = (list(), list(), list()) #se crea lista de 3D para almacenar img, clase y ID de cada uno de los marcadores 
         self.numMarkers = 0
         
-        folder = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/" #PENDING take from launch file
+        folder = "/home/fer/catkin_ws/src/amcl_hybrid/detector/markers_alma/" #PENDING take from launch file
         files = os.listdir(folder)
         for file in files:
             if "marker" and "class" in file:
                 path = folder + file
-                print "path is: ", path
+                #print "path is: ", path
                 img = cv2.imread(path, 0)
                 self.markers[0].append(img)
                 marker_class = file.split("class",1)[1]
@@ -58,7 +60,7 @@ class detector:
                 marker_id = marker_id.split("marker",1)[1]
                 self.markers[2].append(int(marker_id))
                 self.numMarkers = self.numMarkers + 1
-                print("total images in folder: " + str(self.numMarkers))
+                #print("total images in folder: " + str(self.numMarkers))
         
         #ROS declare topics, start detector process when img is received in topic
         yolo_msg_topic  = rospy.get_param('/detectorYOLO/yolo_msg_topic')
@@ -74,21 +76,21 @@ class detector:
     def yolo_msg_callback(self, yolo_msg):
         try:
             #cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-            print "el msj yolo recibido es: ", yolo_msg
+            #print "el msj yolo recibido es: ", yolo_msg
 
             #CREAR OBJETO GLOBAL PARA ALMACENAR DATOS YOLO
             self.yolo_detections = (list(), list(), list(), list(), list(), list()) #0. class label, 1. probability, 2. xmin, ymin, xmax, ymax, 3. id
             
             #self.yolo_detections: 0. class label, 1. probability, 2. xmin, ymin, xmax, ymax, 3. id
             for msg in yolo_msg.bounding_boxes:
-                print "!"
+                #print "!"
                 if msg.probability > 0.7: #prob detection bigger than 70%
-                    print "70!!"
+                    #print "70!!"
                     for j in range(0,len(self.markers[1])):
-                        print "%"
+                        #print "%"
                         if msg.Class == self.markers[1][j]: #if the class of a detected objetc matches a marker class then we store yolo info
-                            print"class detected!!!!"
-                            print "yolo rcvd with >80% and class is ", msg.Class
+                            #print"class detected!!!!"
+                            #print "yolo rcvd with >80% and class is ", msg.Class
                             bounding_box_points = (msg.xmin, msg.xmax, msg.ymin, msg.ymax)
                             self.yolo_detections[0].append(msg.Class)
                             self.yolo_detections[1].append(msg.probability)
@@ -96,23 +98,23 @@ class detector:
                             self.yolo_detections[3].append(yolo_msg.image_header.stamp)                           
                             self.yolo_detections[4].append(self.markers[2][j]) #store the corresponding marker ID
                             self.yolo_detections[5].append(self.markers[0][j]) #store the correspoinding marker img
-                            print "the stored img tstamp is ", self.yolo_detections[3][0]
-                            print "the detected object is", self.yolo_detections[0][0], "with a probability of", self.yolo_detections[1][0], "the marker ID is", self.yolo_detections[4][0]
+                            #print "the stored img tstamp is ", self.yolo_detections[3][0]
+                            #print "the detected object is", self.yolo_detections[0][0], "with a probability of", self.yolo_detections[1][0], "the marker ID is", self.yolo_detections[4][0]
                             self.yolo_detect_flag = True
         except:
-            print"yolo callback error"
+            print("yolo callback error")
             
     def rgb_img_callback(self, img):
         try:
             cv_img = self.bridge.imgmsg_to_cv2(img, "bgr8")
-            print "el current tstamp del RGB img y secuencia es", img.header.stamp, img.header.seq
+            #print "el current tstamp del RGB img y secuencia es", img.header.stamp, img.header.seq
             #store incoming imgs from robot in buffer to compensate delay between yolo and detector 
             self.current_img[0].append(cv_img)
             self.current_img[1].append(img.header.stamp)
             
             if self.yolo_detect_flag == True:    
-                print "YOLO flag is on babyyyyyy!!"
-                print "the len of yolo detections in current img is", len(self.yolo_detections[0]), self.yolo_detections[0]
+                #print "YOLO flag is on babyyyyyy!!"
+                #print "the len of yolo detections in current img is", len(self.yolo_detections[0]), self.yolo_detections[0]
                 for i in range(0,len(self.yolo_detections[0])):  #loop over all the objects detected by yolo network in a single image
                     #exportar datos de la marca detectada
                     timedate = time.strftime("%Y%m%d-%H%M%S") 
@@ -131,14 +133,14 @@ class detector:
                             
                             detection_img_crop_gray = cv2.cvtColor(detection_img_crop, cv2.COLOR_BGR2GRAY) #convertir a escala de grises para dsps obtener height y width con .shape
                             det_crop_w, det_crop_h = detection_img_crop_gray.shape
-                            print "!!!!!!!!!"
-                            print "the shape of the bbox img is width", det_crop_w, "height", det_crop_h
+                            #print "!!!!!!!!!"
+                            #print "the shape of the bbox img is width", det_crop_w, "height", det_crop_h
                             #marker_gray = cv2.cvtColor(self.yolo_detections[5][i], cv2.COLOR_BGR2GRAY)
                             marker_img_w, marker_img_h = self.yolo_detections[5][i].shape[:2] 
-                            print "the shape of the marker image is width", marker_img_w, "height", marker_img_h
-                            print "!!!!!!!!!"
+                            #print "the shape of the marker image is width", marker_img_w, "height", marker_img_h
+                            #print "!!!!!!!!!"
                             if (det_crop_w < marker_img_w/2) or (det_crop_h < marker_img_h/2):  #si bbox crop ims es menor a 0.5marker desechar, no queremos esquinas o pedacitos del marcador
-                                print "error, bounding box is smaller than marker, not useful"
+                                #print "error, bounding box is smaller than marker, not useful"
                                 res_export  = cv2.imwrite(path+'det_bbox_crop_BAD_'+str(timedate)+'.bmp',detection_img_crop) 
                             
                             else:
@@ -162,7 +164,7 @@ class detector:
                                         #3. Compare found rectangle to markers stored in self.markers
                                         if found_rectangle == True:
                                             
-                                            print "corners found for object are ", rectangle_crop_points
+                                            #print "corners found for object are ", rectangle_crop_points
                                             #markerID = self.compareImage(rectangle_cropped) 
                                             markerID =  self.yolo_detections[4][i]
                                             corners, det_img = self.sortCorners(detection_img_crop, rectangle_crop_points, markerID)
@@ -179,23 +181,23 @@ class detector:
                                             n_markers.header.stamp = rospy.Time.now()
                                             n_markers.number = UInt8(len(msg_marker.DetectedMarkers))
                                             self.pub_num_marker.publish(n_markers)
-                                            print("publico -> " + str(len(msg_marker.DetectedMarkers)))
-                                            print(msg_marker) 
+                                            #print("publico -> " + str(len(msg_marker.DetectedMarkers)))
+                                            #print(msg_marker) 
                                         else:
-                                            print "no good rectangles were found"
+                                            print ("no good rectangles were found")
                           
                                 rectangle_export  = cv2.imwrite(path+'yolo_det_rectangles_PRUEBA.bmp',rectangles_img)    
-                                print "se encontro y exporto un rectangulo de bbox croped"
+                                #print "se encontro y exporto un rectangulo de bbox croped"
                                 
                                 contours_concat = np.concatenate((threshold_img,   contours_img),   axis=1) 
                                 detector_img    = np.concatenate((contours_concat, rectangles_img), axis=1)
-                                print "detector_img type is ", type(detector_img)
+                                #print "detector_img type is ", type(detector_img)
                                 result_export  = cv2.imwrite(path+'yolo_det_rectangles_process_'+str(timedate)+'.bmp',detector_img) 
                                 
                             #calculate delay between rgb data transmision and yolo detection
                             #PENDING hacer una funcion de todo esto abajo
                             #delay = img.header.stamp - self.yolo_detections[3][i]
-                            #print "the delay is", delay.secs, "segs", delay.nsecs, "nanoseg"
+                            ##print "the delay is", delay.secs, "segs", delay.nsecs, "nanoseg"
                             #file = open(path+'yolo_det'+str(timedate)+'.txt', 'w') 
                             #file.write(str(delay.secs))
                             #file.write(".")
@@ -293,7 +295,7 @@ class detector:
                 rectangles_img = cv2.drawContours(rectangles_img, [rectangle_points], -1, (0, 0, 255), 1, cv2.LINE_AA) #draw good rectangles in red
                 found_rectangle = True
                 rectangle_found_points = rectangle_points
-                #print "Good rectangle found"
+                ##print "Good rectangle found"
                 #path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
                 #rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img)                    
         return found_rectangle, rectangles_img, rectangle_crop_img, rectangle_found_points
@@ -306,11 +308,11 @@ class detector:
         yolo_img_original = yolo_img
         yolo_img = cv2.cvtColor(yolo_img, cv2.COLOR_BGR2GRAY)
         kp2, des2 = self.SIFTdetector.detectAndCompute(yolo_img, None)
-        print "hola1"       
-        print "los kp y des para la img yolo son: ", len(kp2), len(des2)
+        #print "hola1"       
+        #print "los kp y des para la img yolo son: ", len(kp2), len(des2)
         
         if len(kp2) > 0 and len(des2)>20: #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
-            print "hola2"
+            #print "hola2"
             minNumMatches_found = list()
             #1. Compute flann matches between yolo_img and markers
             FLANN_INDEX_KDTREE = 1 
@@ -318,20 +320,20 @@ class detector:
             search_params = dict(checks = 50)
             flann = cv2.FlannBasedMatcher(index_params, search_params)
             matches_found = flann.knnMatch(des,des2,k=2) 
-            print "hola3"
+            #print "hola3"
             #2. Store good matches that pass the Lowe's ratio test.
             good_matches = []
             for m,n in matches_found:
                 if m.distance < 0.95*n.distance:
                     good_matches.append(m)
-            print("Filtered num of matches per Lowe's tests is", len(good_matches))
-            print "min num of matches required is: ", self.minNumMatches
-            print "hola4"
+            #print("Filtered num of matches per Lowe's tests is", len(good_matches))
+            #print "min num of matches required is: ", self.minNumMatches
+            #print "hola4"
             #3. If the number of good matches found is >= minNumMatches, then use homography matrix and RANSAC algorithm to detect the marker in the rectangle image
             if len(good_matches)>=self.minNumMatches:
                 src_pts = np.float32([  kp[m.queryIdx].pt for m in good_matches ]).reshape(-1,1,2)
                 dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good_matches ]).reshape(-1,1,2)
-                print "hola5"
+                #print "hola5"
                 M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
                 matchesMask = mask.ravel().tolist()
             
@@ -345,18 +347,18 @@ class detector:
                 
                 draw_params = dict(matchColor = (0,255,0), singlePointColor = None, matchesMask = matchesMask, flags = 2)
                 img3 = cv2.drawMatches(marker,kp,yolo_img,kp2,good_matches,None,**draw_params)
-                print "hola6"                 
+                #print "hola6"                 
                 #Exportar image to folder
                 if self.export_img_det == True:
                     sift_export = cv2.imwrite(self.export_path+'det_yolo_sift_kp'+str(time.strftime("%Y%m%d-%H%M%S"))+'.bmp', img3) 
-                    print "hola7"
+                    #print "hola7"
                 #Function Output
                 return marker_detected_by_homography, dst
             else:
-                print "     Not enough matches are found - %d/%d" % (len(good_matches),self.minNumMatches)
-                print "hola8"
+                print ("     Not enough matches are found - %d/%d" % (len(good_matches),self.minNumMatches) )
+                #print "hola8"
         else:            
-            print "(Error condition: (kp2) > 0 and len(des2)>25 not met"
+            print ("(Error condition: (kp2) > 0 and len(des2)>25 not met")
             return -1
              
     def sortCorners(self, img, corners, markerID):
@@ -383,7 +385,7 @@ class detector:
                 sorted_corner[3] = corner[0]
                 corners_img = cv2.circle(img, (corner[0][0], corner[0][1]), 5, self.corner_colors[3], -1)
             else:
-                print("Error of Cuadrant or a corner equal to centroid point-irregular polygons is best to avoid")
+                #print("Error of Cuadrant or a corner equal to centroid point-irregular polygons is best to avoid")
                 return 0
         
         text = str("ID:" + str(markerID))
@@ -403,15 +405,15 @@ class detector:
             pixel.x = corner[0]
             pixel.y = corner[1]
             pixel.z = 0
-            #print(pixel)
+            ##print(pixel)
             new_marker.Corners.append(pixel)
         else:
             new_marker.map = UInt8(0)
             new_marker.sector = UInt8(0)
             new_marker.ID = UInt8(numMarkers)
-            #print(new_marker)
+            ##print(new_marker)
             return new_marker
-        print("Error make marker msg")
+        #print("Error make marker msg")
 
 def main(args):
     rospy.init_node('detector_SIFT', anonymous=True)
