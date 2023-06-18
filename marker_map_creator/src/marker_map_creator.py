@@ -254,6 +254,7 @@ def main(args):
     broadcaster1 = tf2_ros.StaticTransformBroadcaster()
     broadcaster2 = tf2_ros.StaticTransformBroadcaster()
     broadcaster3 = tf2_ros.StaticTransformBroadcaster()
+    listener = tf.TransformListener()
     
     rate = rospy.Rate(1) # 3 Hz
     time = rospy.Time.now()
@@ -281,6 +282,20 @@ def main(args):
         marker3_pub.publish(pt3_pub)  
         marker4_pub.publish(pt4_pub)  
         markerID_pub.publish(ptID_pub)      
+        try:
+            (trans,rot) = listener.lookupTransform('camera/RGB1/Image', 'map',rospy.Time(0))
+            print("the trans listened is ", trans, rot)
+            p1 = geometry_msgs.msg.PoseStamped()
+            p1.header.frame_id = "camera/RGB1/Image"
+            p1.pose.position.x = 2.509
+            p1.pose.position.y = 0.51
+            p1.pose.position.z = 0.63
+            p1.pose.orientation.w = 1.0    # Neutral orientation
+            p_in_base = listener.transformPose("map", p1)
+            print("VENGAAAAA CHICAAAAAAA")
+            print ("Position of the camera/RGB1/Image in the map:", p_in_base)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            continue
         rate.sleep()
 
 
