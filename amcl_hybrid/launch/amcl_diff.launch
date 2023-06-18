@@ -1,25 +1,28 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="markers_file_name" default="map_markers_hexa"/>
-    <arg name="marker_positions_file" default="$(find amcl_miguel)/maps/$(arg markers_file_name).yaml" />
+    <arg name="marker_positions_file" default="$(find amcl_hybrid)/maps/$(arg markers_file_name).yaml" />
+
     <arg name="cameras_file_name" default="cameras"/>
-    <arg name="cameras_positions_file" default="$(find amcl_miguel)/maps/$(arg cameras_file_name).yaml" />
+    <arg name="cameras_positions_file" default="$(find amcl_hybrid)/maps/$(arg cameras_file_name).yaml" />
     <arg name="scan_topic" default="camera/scan"/>
+
     <arg name="odom_topic" default="odom"/>
-    <arg name="base_frame_robot" default="base_footprint"/>
+    <arg name="base_frame_robot" default="base_link"/>
     <arg name="global_frame" default="map"/>
     <arg name="camera_link" default="camera_link"/>
     <arg name="camera_topic" default="/camera/RGB/camera_info"/>
+
     <arg name="topic_output_video" default="/image_converter/output_video"/>
     <arg name="topic_marker" default="/detected_markers"/>   
+
     <arg name="initial_pose_x" default="-2.0"/>
     <arg name="initial_pose_y" default="-0.5"/>
     <arg name="initial_pose_a" default="0.0"/>
     <arg name="height_pos_camera_link" default="-0.0001"/> <!-- If you put value -0.0001, this variable will be calculated using tf topic -->
 
 
-    <node pkg="amcl_miguel" type="amcl_miguel" name="amcl_miguel" respawn="false" output="screen" >
-    
+    <node pkg="amcl_hybrid" type="amcl_hybrid" name="amcl_hybrid" respawn="false" output="screen" >
         <param name="initial_pose_x"    value="$(arg initial_pose_x)"/>
         <param name="initial_pose_y"    value="$(arg initial_pose_y)"/>
         <param name="initial_pose_a"    value="$(arg initial_pose_a)"/>
