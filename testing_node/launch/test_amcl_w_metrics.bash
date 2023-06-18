@@ -8,7 +8,7 @@ for i in {0..1}
 do
 	test_num=1
 	mkdir /home/fer/.ros/${scenario[i]}
-	for j in {1..2}
+	for j in {1..15}
 	do
 		roslaunch run_amcl test_amcl_w_metrics.launch scenario:=${scenario[i]} file_num:=$test_num
 		((test_num=test_num+1))
@@ -16,7 +16,7 @@ do
 	
 	test_num=1
 	mkdir /home/fer/.ros/"${scenario[i]}_depth"
-	for j in {1..2}
+	for j in {1..15}
 	do
 		roslaunch run_amcl test_amcl_w_metrics_virtual_laser.launch scenario:=${scenario[i]} file_num:=$test_num
 		((test_num=test_num+1))
