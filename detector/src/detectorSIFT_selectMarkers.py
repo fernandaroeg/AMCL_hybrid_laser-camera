@@ -39,6 +39,8 @@ class detector:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
             canvas = cv_image.copy()
             
+            #0. Open file to export relevant data
+            
             #1. Find contours in the image received from topic
             contours, contours_img, threshold_img = self.findContours(canvas)
             
@@ -48,13 +50,24 @@ class detector:
                 
                 #3. Compare found rectangle to markers stored in self.markers
                 if found_rectangle == True:
-                    print "Good rectangle found"
+                    print ("Good rectangle found")
+                    path = "/home/fer/catkin_ws/src/amcl_hybrid/detector/select_markers/"
+                    timedate = time.strftime("%Y%m%d-%H%M%S") 
+                    rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_cropped)       
+                    file = open(path+'square_det_'+str(timedate)+'.txt', 'w') 
+                    file.write(str(data.header.seq))
+                    file.write('\n') 
+                    file.write(str(data.header.stamp))
+                    file.write('\n') 
+                    file.write(str(rectangle_crop_points))
+                    file.write('\n')
+                    file.close()
                 else:
                     #no good rectangles were found
-                    print "."
+                    print( ".")
                     det_img = cv_image
                     
-            #4. MOSTRAR Y PUBLICAR IMGS DEL PROCESO           
+            #4. MOSTRAR Y PUBLICAR IMGS Y DATOS DEL PROCESO           
             contours_concat = np.concatenate((cv_image,   contours_img),   axis=1) 
             visualizar      = np.concatenate((contours_concat, rectangles_img), axis=1)
             detector_img    = self.bridge.cv2_to_imgmsg(visualizar, encoding="bgr8")
@@ -145,9 +158,6 @@ class detector:
                 rectangles_img = cv2.drawContours(rectangles_img, [rectangle_points], -1, (0, 0, 255), 1, cv2.LINE_AA) #draw good rectangles in red
                 found_rectangle = True
                 rectangle_found_points = rectangle_points
-                #print "Good rectangle found"
-                #path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
-                #rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_crop_img)                    
         return found_rectangle, rectangles_img, rectangle_crop_img, rectangle_found_points
 
 
