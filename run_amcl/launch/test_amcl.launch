@@ -1,5 +1,5 @@
 <launch>	
-    <arg name="scenario"      default="rx2" />
+    <arg name="scenario"      default="pare" />
 	
 	<!--1. Set simulation time to synchronize bag files and node data-->
 	<param name="/use_sim_time" type="bool" value="true"/>
@@ -14,13 +14,13 @@
     <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_path)$(arg map_file)" />
 		
 	<!--4. Play odom-gtruth rosbag-->
-	<arg name="file2" default="odom5_rx2"/>
-	<arg name="file3" default="groundtruth_amcl_path_rx2"/>
+	<arg name="file2" default="odom5_pare"/>
+	<arg name="file3" default="groundtruth_amcl_path_pare"/>
 	<arg name="path" default="/home/fer/.ros/"/>
 	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file3).bag $(arg path)$(arg file2).bag" />
 		
 	<!-- Play LASER/DEPTH rosbags -->                                                                    
-	<arg name="file1" default="virtual_laser_rx21"/>                                       
+	<arg name="file1" default="virtual_laser_pare"/>                                       
 	<node name="player2" pkg="rosbag" type="play" output="screen" args=" $(arg path)$(arg file1).bag" />
 	
 	<!--5. Run AMCL node to visualize estimated path -->
@@ -34,41 +34,36 @@
 	<arg name="scan_topic" default="/laser" />
 	<node pkg="amcl" type="amcl" name="amcl" output="screen">				
 		<!--Overall Filter Parameters -->
-		<param name="min_particles"       value="100"/>
-		<param name="max_particles"       value="5000"/>
-		<param name="kld_err"             value="0.01"/>
-		<param name="kld_z"               value="0.99"/>
-		<param name="update_min_d"        value="0.2"/>
-		<param name="update_min_a"        value="0.5"/>
-		<param name="resample_interval"   value="2.0"/>
-		<param name="transform_tolerance" value="0.1"/>
-		<param name="recovery_alpha_slow" value="0.0"/>
-		<param name="recovery_alpha_fast" value="0.0"/>
-		<param name="initial_pose_x"      value="$(arg initial_pose_x)"/>
-		<param name="initial_pose_y"      value="$(arg initial_pose_y)"/>
-		<param name="initial_pose_a"      value="$(arg initial_pose_a)"/>
-		<param name="gui_publish_rate"    value="-1.0"/>
-		
-		<!-- Laser Parameters -->
-		<remap from="scan" to="$(arg scan_topic)"/>
-		<param name="laser_model_type"          value="likelihood_field"/>
-		<param name="laser_min_range"           value="-1"/>		
-		<param name="laser_max_range"           value="-1"/>
-		<param name="laser_max_beams"           value="30"/>
-		<param name="laser_z_hit"               value="0.95"/>
-		<param name="laser_z_rand"              value="0.05"/>
-		<param name="laser_sigma_hit"           value="0.2"/>
-		<param name="laser_likelihood_max_dist" value="2.0"/>	
-		
-		<!-- Odometry Parameters -->
-		<param name="odom_model_type" value="diff-corrected"/>
-		<param name="odom_frame_id"   value="odom"          />
-		<param name="base_frame_id"   value="base_link"     />
-		<param name="global_frame_id" value="map"           />
-		<param name="tf_broadcast"    value="true"          />
-		<param name="odom_alpha_1"    value="0.5" />
-		<param name="odom_alpha_2"    value="0.5" />
-		<param name="odom_alpha_3"    value="0.5" />
-		<param name="odom_alpha_4"    value="0.5" />
+        <!-- Publish scans from best pose at a max of 10 Hz -->
+        <param name="odom_model_type" value="diff"/>
+        <param name="odom_alpha5" value="0.1"/>
+        <param name="transform_tolerance" value="0.2" />
+        <param name="gui_publish_rate" value="10.0"/>
+        <param name="laser_max_beams" value="30"/>
+        <param name="min_particles" value="500"/>
+        <param name="max_particles" value="5000"/>
+        <param name="kld_err" value="0.05"/>
+        <param name="kld_z" value="0.99"/>
+        <param name="odom_alpha1" value="0.2"/>
+        <param name="odom_alpha2" value="0.2"/>
+        <!-- translation std dev, m -->
+        <remap from="scan" to="$(arg scan_topic)"/>
+        <param name="odom_alpha3" value="0.8"/>
+        <param name="odom_alpha4" value="0.2"/>
+        <param name="laser_z_hit" value="0.5"/>
+        <param name="laser_z_short" value="0.05"/>
+        <param name="laser_z_max" value="0.05"/>
+        <param name="laser_z_rand" value="0.5"/>
+        <param name="laser_sigma_hit" value="0.1"/>
+        <param name="laser_lambda_short" value="0.1"/>
+        <param name="laser_lambda_short" value="0.1"/>
+        <param name="laser_model_type" value="likelihood_field"/>
+        <param name="laser_likelihood_max_dist" value="2.0"/>
+        <param name="update_min_d" value="0.2"/>
+        <param name="update_min_a" value="0.5"/>
+        <param name="resample_interval" value="1"/>
+        <param name="transform_tolerance" value="0.1"/>
+        <param name="recovery_alpha_slow" value="0.0"/>
+        <param name="recovery_alpha_fast" value="0.0"/>
 	</node>	
 </launch>
