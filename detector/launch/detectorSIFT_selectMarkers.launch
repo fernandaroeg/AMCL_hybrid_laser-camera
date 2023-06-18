@@ -1,6 +1,6 @@
 <launch>	
 	<!-- Launch testing_node -->
 	<node pkg="detector" type="detectorSIFT_selectMarkers.py" name="detectorSIFT" output="screen">
-	<param name="img_topic"    value="/camera/RGB/Image" />
+	<param name="img_topic"    value="/camera/RGB1/Image" />
 	</node>	
 </launch>
