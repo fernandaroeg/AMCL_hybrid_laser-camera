@@ -62,10 +62,10 @@
 #include <nav_msgs/Path.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/Float64.h>
-#include <amcl_miguel/pose_error.h>
-#include <amcl_miguel/pixels_cloud.h>
-#include <amcl_miguel/coeff_sensor.h>
-#include <amcl_miguel/marker_error.h>
+#include <amcl_hybrid/pose_error.h>
+#include <amcl_hybrid/pixels_cloud.h>
+#include <amcl_hybrid/coeff_sensor.h>
+#include <amcl_hybrid/marker_error.h>
 
 
 // For transform support
@@ -77,7 +77,7 @@
 
 // Dynamic_reconfigure
 #include "dynamic_reconfigure/server.h"
-#include "amcl_miguel/AMCLConfig.h"
+#include "amcl_hybrid/AMCLConfig.h"
 
 // Allows AMCL to run from bag file
 #include <rosbag/bag.h>
@@ -122,7 +122,7 @@ static double angle_diff(double a, double b)
         return(d2);
 }
 
-static const std::string scan_topic_ = "scan";
+static const std::string scan_topic_ = "laser"; //FERNANDA: esto estaba en scan y yo publico mi laser en laser 
 
 class AmclNode
 {
@@ -393,7 +393,7 @@ AmclNode::AmclNode() :
 {
     boost::recursive_mutex::scoped_lock l(configuration_mutex_);
     // Grab params off the param server
-    private_nh_.param("use_map_topic", use_map_topic_, false);
+    private_nh_.param("use_map_topic", use_map_topic_, false); 
     private_nh_.param("first_map_only", first_map_only_, false);
 
     double tmp;
@@ -467,7 +467,7 @@ AmclNode::AmclNode() :
     private_nh_.param("update_min_d", d_thresh_, 0.2);
     private_nh_.param("update_min_a", a_thresh_, M_PI/6.0);
     private_nh_.param("odom_frame_id", odom_frame_id_, std::string("odom"));
-    private_nh_.param("base_frame_id", base_frame_id_, std::string("base_link"));
+    private_nh_.param("base_frame_id", base_frame_id_, std::string("base_link")); 
     private_nh_.param("global_frame_id", global_frame_id_, std::string("map"));
     private_nh_.param("camera_topic",camera_topic_, std::string("/camera/RGB/camera_info"));
     private_nh_.param("resample_interval", resample_interval_, 2);
@@ -499,7 +499,7 @@ AmclNode::AmclNode() :
     global_loc_srv_ = nh_.advertiseService("global_localization", &AmclNode::globalLocalizationCallback, this);
     nomotion_update_srv_= nh_.advertiseService("request_nomotion_update", &AmclNode::nomotionUpdateCallback, this);
     //#% defino el publicador de pixeles de la imagen
-    pixels_particles_image_pub_ = nh_.advertise<amcl_miguel::pixels_cloud>("pixels_clouds" ,1);
+    pixels_particles_image_pub_ = nh_.advertise<amcl_hybrid::pixels_cloud>("pixels_clouds" ,1);
 
     set_map_srv_= nh_.advertiseService("set_map", &AmclNode::setMapCallback, this);
 
@@ -532,21 +532,21 @@ AmclNode::AmclNode() :
     //For Camera PF
     XmlRpc::XmlRpcValue marker_list,camera_list;
     //float image_width_;
-    private_nh_.getParam("/amcl_miguel/IMAGE_WIDTH",image_width);
-    private_nh_.getParam("/amcl_miguel/IMAGE_HEIGHT",image_height);
+    private_nh_.getParam("/amcl_hybrid/IMAGE_WIDTH",image_width);
+    private_nh_.getParam("/amcl_hybrid/IMAGE_HEIGHT",image_height);
     cout <<"image_height: "<< image_height << endl;
     // marker_->image_width=image_width_;
-    private_nh_.getParam("/amcl_miguel/MARKER_HEIGHT",marker_height);
-    private_nh_.getParam("/amcl_miguel/MARKER_WIDTH",marker_width);
-    private_nh_.getParam("/amcl_miguel/NUM_CAM",num_cam);
-    private_nh_.getParam("/amcl_miguel/marker_positions",marker_list);
-    private_nh_.getParam("/amcl_miguel/camera_positions",camera_list);
-    private_nh_.getParam("/amcl_miguel/marker_z_hit",marker_z_hit);
-    private_nh_.getParam("/amcl_miguel/marker_z_rand",marker_z_rand);
-    private_nh_.getParam("/amcl_miguel/marker_sigma_hit",marker_sigma_hit);
-    private_nh_.getParam("/amcl_miguel/marker_landa",marker_landa);
+    private_nh_.getParam("/amcl_hybrid/MARKER_HEIGHT",marker_height);
+    private_nh_.getParam("/amcl_hybrid/MARKER_WIDTH",marker_width);
+    private_nh_.getParam("/amcl_hybrid/NUM_CAM",num_cam);
+    private_nh_.getParam("/amcl_hybrid/marker_positions",marker_list);
+    private_nh_.getParam("/amcl_hybrid/camera_positions",camera_list);
+    private_nh_.getParam("/amcl_hybrid/marker_z_hit",marker_z_hit);
+    private_nh_.getParam("/amcl_hybrid/marker_z_rand",marker_z_rand);
+    private_nh_.getParam("/amcl_hybrid/marker_sigma_hit",marker_sigma_hit);
+    private_nh_.getParam("/amcl_hybrid/marker_landa",marker_landa);
     cout<<"landa: "<<marker_landa<<endl;
-    private_nh_.getParam("/amcl_miguel/simulation",simulation);
+    private_nh_.getParam("/amcl_hybrid/simulation",simulation);
     marker_= new AMCLMarker(simulation);
     marker_->simulation= simulation;
     //cout<<"marker_landa"<<marker_landa<<endl;
@@ -657,7 +657,7 @@ AmclNode::AmclNode() :
 
     //this->corners_subs=private_nh_.subscribe<detector::messagedet>("/DetectorNode/detection",1,&AmclNode::detectionCallback,this);
     initial_pose_sub_ = nh_.subscribe("initialpose", 2, &AmclNode::initialPoseReceived, this);
-    error_pub=nh_.advertise<amcl_miguel::pose_error>("amcl_error",1);
+    error_pub=nh_.advertise<amcl_hybrid::pose_error>("amcl_error",1);
     path_pub_out=nh_.advertise<nav_msgs::Path>("output_path",1);  
     dsrv_ = new dynamic_reconfigure::Server<amcl::AMCLConfig>(ros::NodeHandle("~"));
     dynamic_reconfigure::Server<amcl::AMCLConfig>::CallbackType cb = boost::bind(&AmclNode::reconfigureCB, this, _1, _2);
@@ -789,7 +789,7 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
         ROS_INFO("Initializing likelihood field model LASER; this can take some time on large maps...");
         laser_->SetModelLikelihoodField(z_hit_, z_rand_, sigma_hit_, laser_likelihood_max_dist_, laser_coeff);
         ROS_INFO("Done initializing likelihood field model.");
-        laser_->pub_coeff_laser=nh_.advertise<amcl_miguel::coeff_sensor>("coeff_sensor" ,10);
+        laser_->pub_coeff_laser=nh_.advertise<amcl_hybrid::coeff_sensor>("coeff_sensor" ,10);
     }
 
     odom_frame_id_ = config.odom_frame_id;
@@ -816,8 +816,8 @@ void AmclNode::reconfigureCB(AMCLConfig &config, uint32_t level)
         marker_->image_width=image_width;
         marker_->image_height=image_height;
         marker_->height_center_camera=height_pos_camera_link_;
-        marker_->pub_coeff_marker=nh_.advertise<amcl_miguel::coeff_sensor>("coeff_sensor" ,10);
-        marker_->pub_marker_error=nh_.advertise<amcl_miguel::marker_error>("error_marker" , 10);
+        marker_->pub_coeff_marker=nh_.advertise<amcl_hybrid::coeff_sensor>("coeff_sensor" ,10);
+        marker_->pub_marker_error=nh_.advertise<amcl_hybrid::marker_error>("error_marker" , 10);
     }
 
     delete marker_detection_filter_;
@@ -1088,7 +1088,7 @@ void AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid& msg)
         ROS_INFO("Initializing likelihood field model LASER; this can take some time on large maps...");
         laser_->SetModelLikelihoodField(z_hit_, z_rand_, sigma_hit_, laser_likelihood_max_dist_,laser_coeff);
         ROS_INFO("Done initializing likelihood field model LASER.");
-        laser_->pub_coeff_laser=nh_.advertise<amcl_miguel::coeff_sensor>("coeff_sensor" ,10);
+        laser_->pub_coeff_laser=nh_.advertise<amcl_hybrid::coeff_sensor>("coeff_sensor" ,10);
     }
     //Markers
     delete marker_;
@@ -1105,8 +1105,8 @@ void AmclNode::handleMapMessage(const nav_msgs::OccupancyGrid& msg)
         marker_->image_height=image_height;
         marker_->simulation=simulation;
         marker_->height_center_camera=height_pos_camera_link_;
-        marker_->pub_coeff_marker=nh_.advertise<amcl_miguel::coeff_sensor>("coeff_sensor" ,10);
-        marker_->pub_marker_error=nh_.advertise<amcl_miguel::marker_error>("error_marker" , 10);
+        marker_->pub_coeff_marker=nh_.advertise<amcl_hybrid::coeff_sensor>("coeff_sensor" ,10);
+        marker_->pub_marker_error=nh_.advertise<amcl_hybrid::marker_error>("error_marker" , 10);
     }
     // In case the initial pose message arrived before the first map,
     // try to apply the initial pose now that the map has arrived.
@@ -1582,7 +1582,7 @@ void AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
             puts("");
             }
             */
-            amcl_miguel::pose_error p_error;
+            amcl_hybrid::pose_error p_error;
 
             float error_x=p.pose.pose.position.x-ground_truth_x_;
             float error_y=p.pose.pose.position.y-ground_truth_y_;
@@ -2045,8 +2045,8 @@ void AmclNode::detectionCallback (const detector::messagedet::ConstPtr &msg)
         marker_->image_height=image_height;
         marker_->image_width=image_width;
         marker_->height_center_camera=height_pos_camera_link_;
-        marker_->pub_coeff_marker=nh_.advertise<amcl_miguel::coeff_sensor>("coeff_sensor" ,10);
-        marker_->pub_marker_error=nh_.advertise<amcl_miguel::marker_error>("error_marker" , 10);
+        marker_->pub_coeff_marker=nh_.advertise<amcl_hybrid::coeff_sensor>("coeff_sensor" ,10);
+        marker_->pub_marker_error=nh_.advertise<amcl_hybrid::marker_error>("error_marker" , 10);
     }
     pf_vector_t pose;
 
@@ -2134,8 +2134,8 @@ void AmclNode::detectionCallback (const detector::messagedet::ConstPtr &msg)
         marker_->num_cam=num_cam;
         marker_->image_height=image_height;
         marker_->height_center_camera=height_pos_camera_link_;
-        marker_->pub_coeff_marker=nh_.advertise<amcl_miguel::coeff_sensor>("coeff_sensor" ,10);
-        marker_->pub_marker_error=nh_.advertise<amcl_miguel::marker_error>("error_marker" , 10);
+        marker_->pub_coeff_marker=nh_.advertise<amcl_hybrid::coeff_sensor>("coeff_sensor" ,10);
+        marker_->pub_marker_error=nh_.advertise<amcl_hybrid::marker_error>("error_marker" , 10);
         //cout<<"cuantos"<<observation.size()<<endl;
         //cout<<global_frame_id_<<endl;
         //cout<<odom_frame_id_<<endl;
@@ -2251,7 +2251,7 @@ void AmclNode::detectionCallback (const detector::messagedet::ConstPtr &msg)
 
             //Publishing error with gazebo's ground_truth
             if(simulation == 1){
-                amcl_miguel::pose_error p_error;
+                amcl_hybrid::pose_error p_error;
 
                 float error_x=p.pose.pose.position.x-ground_truth_x_;
                 float error_y=p.pose.pose.position.y-ground_truth_y_;
