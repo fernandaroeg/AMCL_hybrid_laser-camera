@@ -36,7 +36,8 @@ class detector:
         self.minNumMatches = 8
         
         #3. INICIALIZAR SIFT
-        self.SIFTdetector = cv2.xfeatures2d.SIFT_create()
+        self.SIFTdetector= cv2.ORB_create(self.numMarkers)
+        #self.SIFTdetector = cv2.xfeatures2d.SIFT_create() SIFT not available in this cv version, must use ORB which is opensource
         
         #4. CREAR LISTA DE MARCADORES A BUSCAR
         self.markers = (list(), list(), list()) #se crea lista3D para almacenar img, keypoints, descriptors de cada uno de los marcadores en folder
@@ -212,7 +213,7 @@ class detector:
                 search_params = dict(checks = 50)
                 flann = cv2.FlannBasedMatcher(index_params, search_params)
                 matches_found = flann.knnMatch(self.markers[2][i],des,k=2) #updated matcher from bf to flann in order to perform lowe's ratio test
-                print "Comparing good rect with enough features to marker", i
+                print ("Comparing good rect with enough features to marker", i)
                 #print "Num unfiltered matches found ", len(matches_found)
                 
                 #2. Store good matches that pass the Lowe's ratio test.
@@ -248,10 +249,10 @@ class detector:
                         sift_export = cv2.imwrite(self.export_path+'detected_'+str(time.strftime("%Y%m%d-%H%M%S"))+'.bmp', img3) 
                     
                     #Function Output
-                    print "The marker found ID is", markerID
+                    print ("The marker found ID is", markerID)
                     return markerID
                 else:
-                    print "     Not enough matches are found - %d/%d" % (len(good_matches),MIN_MATCH_COUNT)
+                    print ("     Not enough matches are found - %d/%d" % (len(good_matches),MIN_MATCH_COUNT))
         else:
             return -1
              
