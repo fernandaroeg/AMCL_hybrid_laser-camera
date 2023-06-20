@@ -1,11 +1,10 @@
 <launch>	
     <node pkg="marker_map_creator" type="marker_map_creator.py" name="marker_map_creator" output="screen">
 	<param name= "input_data_folder"   value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/1_input_data/" />
-    <param name= "outpu_map_path"    value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/2_output_map" />
+    <param name= "output_map_path"    value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/2_output_map/" />
    
    <param name= "input_depth_bag"              value="rgbd1_depth_pare.bag" />
    <param name= "input_depth_img_topic"    value="/camera/RGB1/Image" />
-   <param name= "input_tf_from_cam"            value="rgbd1" />
 
     <param name= "input_gtruth_bag"    value="groundtruth_path_pare.bag" />
 

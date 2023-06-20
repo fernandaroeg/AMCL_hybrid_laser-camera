@@ -1,5 +1,0 @@
-<launch>	
-    <node pkg="marker_map_creator" type="marker_map_listener.py" name="marker_map_listener" output="screen">
-
-    </node>
-</launch>
