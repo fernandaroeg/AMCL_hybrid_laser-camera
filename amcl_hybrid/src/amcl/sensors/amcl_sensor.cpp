@@ -2,7 +2,6 @@
  *  Player - One Hell of a Robot Server
  *  Copyright (C) 2000  Brian Gerkey   &  Kasper Stoy
  *                      gerkey@usc.edu    kaspers@robotics.usc.edu
- *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
  *  License as published by the Free Software Foundation; either
@@ -21,7 +20,8 @@
 ///////////////////////////////////////////////////////////////////////////
 //
 // Desc: AMCL sensor
-// Author: Andrew Howard
+// Author: Andrew Howard *
+
 // Date: 6 Feb 2003
 // CVS: $Id: amcl_sensor.cc 7057 2008-10-02 00:44:06Z gbiggs $
 //

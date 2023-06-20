@@ -38,7 +38,7 @@
 #include <sstream>
 #include <iostream>
 #include "amcl/sensors/amcl_laser.h"
-#include "amcl_miguel/coeff_sensor.h"
+#include "amcl_hybrid/coeff_sensor.h"
 
 using namespace amcl;
 using namespace std;
@@ -314,7 +314,7 @@ double AMCLLaser::LikelihoodFieldModel(AMCLLaserData *data, pf_sample_set_t* set
     total_weight *= self->laser_coeff;
     //cout << "*** Calculated total_weight Laser-> " << total_weight << endl;
     std::cout<<"*** Calculated total_weight Laser: " << total_weight << " (coeff: "<< self->laser_coeff << " )" << std::endl;
-    amcl_miguel::coeff_sensor coeff_sensor_msg;
+    amcl_hybrid::coeff_sensor coeff_sensor_msg;
     coeff_sensor_msg.header.stamp = ros::Time::now();
     coeff_sensor_msg.sensor.data = "laser";
     coeff_sensor_msg.coeff.data = total_weight;

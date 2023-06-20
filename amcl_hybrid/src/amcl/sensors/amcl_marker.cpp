@@ -35,10 +35,10 @@
 #include <vector>
 #include <iostream>
 #include <numeric>
-#include <amcl_miguel/pixels_corners.h>
-#include <amcl_miguel/pixels_cloud.h>
-#include <amcl_miguel/coeff_sensor.h>
-#include <amcl_miguel/marker_error.h>
+#include <amcl_hybrid/pixels_corners.h>
+#include <amcl_hybrid/pixels_cloud.h>
+#include <amcl_hybrid/coeff_sensor.h>
+#include <amcl_hybrid/marker_error.h>
 
 
 #include "amcl/sensors/amcl_marker.h"
@@ -143,7 +143,7 @@ double AMCLMarker::ObservationLikelihood(AMCLMarkerData *data, pf_sample_set_t* 
         return(1.0);
     }
     
-    amcl_miguel::pixels_cloud aux_pixels_cloud;
+    amcl_hybrid::pixels_cloud aux_pixels_cloud;
     //###### Un ciclo por cada muestra de la nube de puntos (sample)
     float total_error_marker = 0.0;
     for (int i=0;i< set->sample_count; i++){
@@ -244,12 +244,12 @@ double AMCLMarker::ObservationLikelihood(AMCLMarkerData *data, pf_sample_set_t* 
     //#% This one I have added to use marker_coeff;
     total_weight *= self->marker_coeff;
     std::cout<<"*** Calculated total_weight Marker: " << total_weight << " (coeff: "<< self->marker_coeff << " )" << std::endl;
-    amcl_miguel::coeff_sensor fail_marker_msg;
+    amcl_hybrid::coeff_sensor fail_marker_msg;
     fail_marker_msg.header.stamp = ros::Time::now();
     fail_marker_msg.coeff.data = total_weight;
     fail_marker_msg.sensor.data = "marker";
     self->pub_coeff_marker.publish(fail_marker_msg);
-    amcl_miguel::marker_error msg_marker_error;
+    amcl_hybrid::marker_error msg_marker_error;
     msg_marker_error.total_error.data = total_error_marker / float(set->sample_count*observation.size());
     self->pub_marker_error.publish(msg_marker_error);
     return(total_weight);
@@ -298,7 +298,7 @@ std::vector<cv::Point2d> AMCLMarker::projectPoints(std::vector<geometry_msgs::Po
    //cout<<"entra en relative"<<endl;
     geometry_msgs::PointStamped cam_center_coord_st,cam_trans_coord_st;
     std::vector<cv::Point2d> Pixels;
-    amcl_miguel::pixels_corners aux_pixels_corners;
+    amcl_hybrid::pixels_corners aux_pixels_corners;
     geometry_msgs::Point32 pixel_corner;
     for (int i=0;i<cam_center_coord.size();i++){// size es 4 que es igual al número de corner
         cam_center_coord_st.point=cam_center_coord[i];

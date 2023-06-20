@@ -46,8 +46,8 @@
 #include <tf/tf.h>
 #include <detector/marcador.h>
 #include <opencv2/ccalib/omnidir.hpp>
-#include <amcl_miguel/pixels_cloud.h>
-//#include <amcl_miguel/fail_marker.h>
+#include <amcl_hybrid/pixels_cloud.h>
+//#include <amcl_hybrid/fail_marker.h>
 #include "ros/ros.h"
 
 using namespace std;
@@ -112,8 +112,8 @@ class AMCLMarker : public AMCLSensor
   public: float  marker_width, num_cam,marker_height,image_width,image_height, height_center_camera;
 
   // Pixels cloud
-  public: amcl_miguel::pixels_cloud send_pixels_cloud;
-  public: amcl_miguel::pixels_corners send_pixels_corners;
+  public: amcl_hybrid::pixels_cloud send_pixels_cloud;
+  public: amcl_hybrid::pixels_corners send_pixels_corners;
 
   // Pub_Fail_Marker
   public: ros::Publisher pub_coeff_marker, pub_marker_error;
