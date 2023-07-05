@@ -18,19 +18,23 @@
 	<arg name="file1" default="groundtruth_amcl_path_pare"/>
 	<arg name="file2" default="odom5_pare"/>
 	<arg name="path" default="/home/fer/.ros/"/>
-	<node name="player" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file1).bag $(arg path)$(arg file2).bag" />
+	<node name="gtruth_odom_bagplayer" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file1).bag $(arg path)$(arg file2).bag" />
 	
 	<!--6. Play virtual laser rosbag (it has diff timestamps than the odom and gtruth bags, i.e. a different clock, so it needs to be played separetely)-->                                                                    
 	<arg name="file3" default="virtual_laser_pare"/>                                                                                           
-	<node name="player2" pkg="rosbag" type="play" output="screen" args="$(arg path)$(arg file3).bag" />		
+	<node name="virtual_laser_bagplayer" pkg="rosbag" type="play" output="screen" args="$(arg path)$(arg file3).bag" />		
 	
 	<!--7. Play Image rosbags with necessary delay to synchronize data-->                                                                                                                        
 	<arg name="file4" default="rgbd1_img_pare"/>                                                        
-	<node name="player3" pkg="rosbag" type="play" output="screen" args=" $(arg path)$(arg file4).bag" launch-prefix="bash -c 'sleep 2.176; $0 $@' " />
+	<node name="rgbd1_img_bagplayer" pkg="rosbag" type="play" output="screen" args=" $(arg path)$(arg file4).bag" launch-prefix="bash -c 'sleep 2.176; $0 $@' " />
 
-	<!--8. Configue Hybrid parameters maps, tfs and topics  -->  
-    <arg name="markers_file_name" default="map_markers_hexa"/>
-    <arg name="marker_positions_file" default="$(find amcl_hybrid)/maps/$(arg markers_file_name).yaml" />
+	<!--8. Run AMCL node to visualize estimated path -->
+	<node pkg="run_amcl" type="run_amcl" name="run_amcl" output="screen">
+	</node>
+	
+	<!--9. Configue Hybrid parameters maps, tfs and topics  -->  
+    <arg name="markers_file_name" default="pare_markers_map"/>
+    <arg name="marker_positions_file" default="$(find amcl_hybrid)/maps/$(arg markers_file_name).yml" />
 
     <arg name="cameras_file_name" default="cameras"/>
     <arg name="cameras_positions_file" default="$(find amcl_hybrid)/maps/$(arg cameras_file_name).yaml" />
@@ -39,18 +43,18 @@
     <arg name="odom_topic" default="odom"/>
     <arg name="base_frame_robot" default="base_link"/>
     <arg name="global_frame" default="map"/>
-    <arg name="camera_link" default="camera/RGB1"/>
-    <arg name="camera_topic" default="camera/RGB1/CameraInfo"/>
+    <arg name="camera_link" default="camera/RGB1/Image"/>
+    <arg name="camera_topic" default="camera/RGB1/camera_info"/>
 
     <arg name="topic_output_video" default="image_converter/output_video"/>
     <arg name="topic_marker" default="detected_markers"/>   
 
-    <arg name="initial_pose_x" default="-2.0"/>
-    <arg name="initial_pose_y" default="-0.5"/>
+    <arg name="initial_pose_x" default="0.0"/>
+    <arg name="initial_pose_y" default="0.0"/>
     <arg name="initial_pose_a" default="0.0"/>
     <arg name="height_pos_camera_link" default="-0.0001"/> <!-- If you put value -0.0001, this variable will be calculated using tf topic -->
 
-	<!--9. Launch AMCL Hybrid-->  
+	<!--10. Launch AMCL Hybrid-->  
     <node pkg="amcl_hybrid" type="amcl_hybrid" name="amcl_hybrid" respawn="false" output="screen" >
         <param name="initial_pose_x"    value="$(arg initial_pose_x)"/>
         <param name="initial_pose_y"    value="$(arg initial_pose_y)"/>
