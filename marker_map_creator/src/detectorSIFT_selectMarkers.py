@@ -25,21 +25,22 @@ class detector:
        
         #2. Parameters SETUP
             #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
+        self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
             #Rectangle detection parameters minimun width and height for images to loook
         self.min_w_h_image = 10 
         
         #3. START detector process when img is received in topic
-        topic = rospy.get_param('/detectorSIFT/img_topic')
+        topic = rospy.get_param('/detectorSIFT_selectMarkers/img_topic')
         self.image_sub = rospy.Subscriber(topic, Image, self.callback)
+        
+         #4. INICIALIZAR SIFT to find min set of kp and des 
+        self.SIFTdetector= cv2.ORB_create(nfeatures=100000, scoreType=cv2.ORB_FAST_SCORE)
         
 
     def callback(self, data):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
             canvas = cv_image.copy()
-            
-            #0. Open file to export relevant data
             
             #1. Find contours in the image received from topic
             contours, contours_img, threshold_img = self.findContours(canvas)
@@ -50,18 +51,22 @@ class detector:
                 
                 #3. Compare found rectangle to markers stored in self.markers
                 if found_rectangle == True:
-                    print ("Good rectangle found")
-                    path = "/home/fer/catkin_ws/src/amcl_hybrid/detector/select_markers/"
-                    timedate = time.strftime("%Y%m%d-%H%M%S") 
-                    rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_cropped)       
-                    file = open(path+'square_det_'+str(timedate)+'.txt', 'w') 
-                    file.write(str(data.header.seq))
-                    file.write('\n') 
-                    file.write(str(data.header.stamp))
-                    file.write('\n') 
-                    file.write(str(rectangle_crop_points))
-                    file.write('\n')
-                    file.close()
+                    #calcular SIFT y si tiene al menos kp>0, des>25, y de tamañao al menos 50x50 entonces exportar
+                    kp, des = self.SIFTdetector.detectAndCompute(rectangle_cropped, None)
+                    print("para el rectangulo detectado se encontraron kp",len(kp), " y des", len(des))
+                    if len(kp)>0 and len(des)>10:
+                        print ("Good rectangle found w/enough key points")
+                        path = "/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/0_select_markers/"
+                        timedate = time.strftime("%Y%m%d-%H%M%S") 
+                        rectangle_export = cv2.imwrite(path+'square_det_'+str(timedate)+'.bmp', rectangle_cropped)       
+                        file = open(path+'square_det_'+str(timedate)+'.txt', 'w') 
+                        file.write(str(data.header.seq))
+                        file.write('\n') 
+                        file.write(str(data.header.stamp))
+                        file.write('\n') 
+                        file.write(str(rectangle_crop_points))
+                        file.write('\n')
+                        file.close()
                 else:
                     #no good rectangles were found
                     print( ".")
