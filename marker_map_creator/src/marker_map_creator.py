@@ -139,7 +139,6 @@ def sortCorners(corners):
 
 def main(args):
     #1. Parameters SETUP
-    corner_colors          = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) #BGR coners
     input_data_folder           =  rospy.get_param('marker_map_creator/input_data_folder')#seq, tstamp, points 
     output_map_path            =  rospy.get_param('marker_map_creator/output_map_path')
     input_gtruth_bag            =  rospy.get_param('marker_map_creator/input_gtruth_bag')
@@ -199,7 +198,7 @@ def main(args):
     #4. Extract depth img from bagfile
     markers_center_xyz = []
     markers_data_rviz    = []
-    depth_bag = rosbag.Bag(input_data_folder+input_depth_bag)
+    depth_bag = rosbag.Bag(input_depth_bag)
     for i in range(0,len(markers_data)):
         print("############################")
         print("Marker's ID",str(i),"Points Procesing")
@@ -229,7 +228,7 @@ def main(args):
                 cv2.circle(cv_image, (pt2[0], pt2[1]), radius=0, color=(255, 0, 0), thickness=5) #blue
                 cv2.circle(cv_image, (pt3[0], pt3[1]), radius=0, color=(0, 255, 255), thickness=5) #yellow
                 cv2.circle(cv_image, (pt4[0], pt4[1]), radius=0, color=(0, 0, 255), thickness=5) #red           
-                path = "/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/1_input_data/"
+                path = output_map_path
                 rectangle_export = cv2.imwrite(path+'sortcorners_img_'+str(i)+'.bmp',cv_image) #TODO exporta fotos
                 
                 #7. Get pixel values and compute position in space XYZ  
@@ -262,7 +261,7 @@ def main(args):
                     break #this tf is static so with just reading the 1rst msg is enough
                     
                 #9. Extract pose of base_link in the tstamp where the depth_img was taken
-                gtruth_bag = rosbag.Bag(input_data_folder+input_gtruth_bag)
+                gtruth_bag = rosbag.Bag(input_gtruth_bag)
                 for topic, gt_msg, t in gtruth_bag.read_messages(topics=["tf"]):
                     tf_msg = gt_msg.transforms
                     #9.1 Find the closest tstamp in the gtruth data to the tstamp when the img was taken
@@ -277,7 +276,7 @@ def main(args):
                         pt2_pub   = create_marker(pt2_xyz[0], pt2_xyz[1], pt2_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(0, 1, 0, 0.5))#green
                         pt3_pub   = create_marker(pt3_xyz[0], pt3_xyz[1], pt3_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(0, 0, 1, 0.5))#blue
                         pt4_pub   = create_marker(pt4_xyz[0], pt4_xyz[1], pt4_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 1, 0, 0.5))#yellow
-                        ptID_pub = create_marker_text(center_xyz[0], center_xyz[1], center_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 1, 0, 0.5), "ID"+str(i))#yellow
+                        ptID_pub = create_marker_text(center_xyz[0], center_xyz[1], center_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 0, 0, 5), "ID"+str(i))#yellow
                         
                         tf_rgb1   = create_static_tf(  rgbd_tf.transform.translation.x,   rgbd_tf.transform.translation.y,   rgbd_tf.transform.translation.z ,  rgbd_tf.transform.rotation, time,   rgbd_tf.header.frame_id+str(i),   rgbd_tf.child_frame_id+str(i))
                         tf_gtruth = create_static_tf(gtruth_tf.transform.translation.x, gtruth_tf.transform.translation.y, gtruth_tf.transform.translation.z ,gtruth_tf.transform.rotation, time, gtruth_tf.header.frame_id, gtruth_tf.child_frame_id+str(i))
@@ -288,9 +287,10 @@ def main(args):
                         #print("el marker del punto 1 es ", pt1_pub.header.frame_id, pt1_pub.pose.position.x, pt1_pub.pose.position.y, pt1_pub.pose.position.z, pt1_pub.pose.orientation.x, pt1_pub.pose.orientation.y,pt1_pub.pose.orientation.z,pt1_pub.pose.orientation.w)                                           
                         markers_center_xyz.append(center_xyz)                        
                         break
+                gtruth_bag.close()
     print("markers_data len is", len(markers_data_rviz)) 
     depth_bag.close()
-    gtruth_bag.close()
+
     
     centers_tfmap_list = []
     export_yaml_file = True 
