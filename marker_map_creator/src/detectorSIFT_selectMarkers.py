@@ -25,7 +25,7 @@ class detector:
        
         #2. Parameters SETUP
             #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
+        self.thresh_binary  = cv2.THRESH_BINARY#THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
             #Rectangle detection parameters minimun width and height for images to loook
         self.min_w_h_image = 10 
         
@@ -34,8 +34,18 @@ class detector:
         self.image_sub = rospy.Subscriber(topic, Image, self.callback)
         
          #4. INICIALIZAR SIFT to find min set of kp and des 
-        self.SIFTdetector= cv2.ORB_create(nfeatures=100000, scoreType=cv2.ORB_FAST_SCORE)
-        
+        #self.SIFTdetector= cv2.ORB_create(nfeatures=100000, scoreType=cv2.ORB_HARRIS_SCORE)
+        self.SIFTdetector=  cv2.ORB_create(
+                                                                        nfeatures = 500,       #max num of features to retain.
+                                                                        scaleFactor = 1.2,    #Pyramid decimation ratio, greater than 1
+                                                                        nlevels = 8,               #The number of pyramid levels.
+                                                                        edgeThreshold = 7,#This is size of the border where the features are not detected. It should roughly match the patchSize parameter
+                                                                        firstLevel = 0,           # It should be 0 in the current implementation.
+                                                                        WTA_K = 2,             #The number of points that produce each element of the oriented BRIEF descriptor.
+                                                                        scoreType = cv2.ORB_HARRIS_SCORE,   # The default HARRIS_SCORE means that Harris algorithm is used to rank features (the score is written to KeyPoint::score and is 
+                                                                                                          # used to retain best nfeatures features); FAST_SCORE is alternative value of the parameter that produces slightly less stable kps but a little faster to compute.   #scoreType = cv2.ORB_FAST_SCORE,
+                                                                        patchSize = 7          # size of the patch used by the oriented BRIEF descriptor. Of course, on smaller pyramid layers the perceived image area covered by a feature will be larger.
+                                                                        )                                 #https://stackoverflow.com/questions/65602353/how-to-use-orb-feature-detector-with-small-images-in-opencv
 
     def callback(self, data):
         try:

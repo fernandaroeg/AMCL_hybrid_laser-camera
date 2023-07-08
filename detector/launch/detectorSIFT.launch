@@ -2,8 +2,8 @@
 	<!-- Launch detector SIFT -->
 	<node pkg="detector" type="detectorSIFT.py" name="detectorSIFT" output="screen">
 	
-	<param name="markers_path" value="/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/" />
-	<param name="num_markers"  value="5" />
+	<param name="markers_path" value="/home/fer/catkin_ws/src/amcl_hybrid/detector/markers/pare/" />
+	<param name="num_markers"  value="2" />
 	<param name="img_topic"    value="/camera/RGB1/Image" />
 	<param name="detection_msg_publish_topic"    value="/camera_link" />
 	

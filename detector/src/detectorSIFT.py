@@ -21,12 +21,14 @@ class detector:
         self.pub_marker     = rospy.Publisher('detected_markers', messagedet, queue_size=1)
         self.pub_projection = rospy.Publisher('detector_img', Image, queue_size=1)
         self.pub_num_marker = rospy.Publisher('num_detecte_markers', num_markers, queue_size=10)
+        markers_path = rospy.get_param('/detectorSIFT/markers_path')
        
         #2. Parameters SETUP
         self.numMarkers     = rospy.get_param('/detectorSIFT/num_markers')
         self.corner_colors  = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) #BGR coners
         self.export_img_det = True
-        self.export_path    = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
+        
+        self.export_path    = markers_path
         
             #Contour detection parameters
         self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
@@ -36,13 +38,23 @@ class detector:
         self.minNumMatches = 8
         
         #3. INICIALIZAR SIFT
-        self.SIFTdetector= cv2.ORB_create(self.numMarkers)
+        self.SIFTdetector=  cv2.ORB_create(
+                                                                        nfeatures = 500,       #max num of features to retain.
+                                                                        scaleFactor = 1.2,    #Pyramid decimation ratio, greater than 1
+                                                                        nlevels = 8,               #The number of pyramid levels.
+                                                                        edgeThreshold = 7,#This is size of the border where the features are not detected. It should roughly match the patchSize parameter
+                                                                        firstLevel = 0,           # It should be 0 in the current implementation.
+                                                                        WTA_K = 2,             #The number of points that produce each element of the oriented BRIEF descriptor.
+                                                                        scoreType = cv2.ORB_HARRIS_SCORE,   # The default HARRIS_SCORE means that Harris algorithm is used to rank features (the score is written to KeyPoint::score and is 
+                                                                                                          # used to retain best nfeatures features); FAST_SCORE is alternative value of the parameter that produces slightly less stable kps but a little faster to compute.   #scoreType = cv2.ORB_FAST_SCORE,
+                                                                        patchSize = 7          # size of the patch used by the oriented BRIEF descriptor. Of course, on smaller pyramid layers the perceived image area covered by a feature will be larger.
+                                                                        )                                 #https://stackoverflow.com/questions/65602353/how-to-use-orb-feature-detector-with-small-images-in-opencv
+        #self.SIFTdetector = cv2.xfeatures2d.SURF_create(self.numMarkers)
         #self.SIFTdetector = cv2.xfeatures2d.SIFT_create() SIFT not available in this cv version, must use ORB which is opensource
         
         #4. CREAR LISTA DE MARCADORES A BUSCAR
         self.markers = (list(), list(), list()) #se crea lista3D para almacenar img, keypoints, descriptors de cada uno de los marcadores en folder
         for i in range(0, self.numMarkers):
-            markers_path = rospy.get_param('/detectorSIFT/markers_path')
             path = str(markers_path + "marker" + str(i) +".png") 
             print(path)
             img = cv2.imread(path, 0)
@@ -50,6 +62,7 @@ class detector:
             kp, des = self.SIFTdetector.detectAndCompute(img, None)
             self.markers[1].append(kp)
             self.markers[2].append(des)   
+            print("para el marker",i," se encontraron kp",len(kp), " y des", len(des))
         print("total images in folder: " + str(len(self.markers[0])))
         
         #5. START detector process when img is received in topic
@@ -76,6 +89,7 @@ class detector:
                     
                     #4. If marker was found sort corners
                     if  markerID >= 0: 
+                    #if  markerID is not None: 
                         corners, det_img = self.sortCorners(cv_image, rectangle_crop_points, markerID)
                         #5. Publish Marker Msg in TOPIC
                         msg_marker = messagedet() 
@@ -203,8 +217,8 @@ class detector:
         rectangle_original = rectangle
         rectangle = cv2.cvtColor(rectangle, cv2.COLOR_BGR2GRAY)
         kp, des = self.SIFTdetector.detectAndCompute(rectangle, None)
-        
-        if len(kp) > 0 and len(des)>25: #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
+
+        if len(kp) > 0 and len(des)>25: #len(des)>25 #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
             minNumMatches_found = list()
             for i in range(self.numMarkers): #compare rectangle to all the markers stored, logic from:https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html         
                 #1. Compute flann matches between rectangle and markers
@@ -212,9 +226,16 @@ class detector:
                 index_params  = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
                 search_params = dict(checks = 50)
                 flann = cv2.FlannBasedMatcher(index_params, search_params)
-                matches_found = flann.knnMatch(self.markers[2][i],des,k=2) #updated matcher from bf to flann in order to perform lowe's ratio test
+                ##des2 = des.convertTo(descriptors_1, CV_32F)
+                ##des1 = self.markers[2][i].convertTo(descriptors_1, CV_32F)
+                print("para el rectangulo actual se encontraron kp",len(kp), " y des", len(des))
                 print ("Comparing good rect with enough features to marker", i)
-                #print "Num unfiltered matches found ", len(matches_found)
+                des2 = np.float32(des)
+                des1 = np.float32(self.markers[2][i])
+                
+                matches_found = flann.knnMatch(des1,des2,k=2) #updated matcher from bf to flann in order to perform lowe's ratio test
+                #matches_found = flann.knnMatch(self.markers[2][i],des,k=2) #updated matcher from bf to flann in order to perform lowe's ratio test
+                print ("Num unfiltered matches found ", len(matches_found))
                 
                 #2. Store good matches that pass the Lowe's ratio test.
                 good_matches = []
@@ -222,7 +243,7 @@ class detector:
                     if m.distance < 0.7*n.distance:
                         good_matches.append(m)
                         markerID = i
-                #print("Filtered num of matches per Lowe's tests is", len(good_matches))
+                print("Filtered num of matches per Lowe's tests is", len(good_matches))
                 
                 #3. If the number of good matches found is >= minNumMatches, then use homography matrix and RANSAC algorithm to detect the marker in the rectangle image
                 MIN_MATCH_COUNT = self.minNumMatches
@@ -284,7 +305,7 @@ class detector:
                 return 0
         
         text = str("ID:" + str(markerID))
-        corners_img = cv2.putText(img, text, (w_center, h_center), 2, 1, (255, 0, 0), 1, lineType=cv2.LINE_AA)
+        corners_img = cv2.putText(img, text, (w_center-50, h_center), 2, 1, (255, 0, 0), 1, lineType=cv2.LINE_AA)
         corners_img = cv2.drawContours(img, [corners], -1, (0, 255, 255), 1, cv2.LINE_AA) #draw rectangles to be debuged
         timedate = time.strftime("%Y%m%d-%H%M%S") 
         path = "/home/fer/Desktop/catkin_ws/src/AMCL_Hybrid/detector/markers_alma/"
