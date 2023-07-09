@@ -231,7 +231,7 @@ Visualization Manager:
       Marker Topic: /mkID1
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -239,7 +239,7 @@ Visualization Manager:
       Marker Topic: /mkID2
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -247,7 +247,7 @@ Visualization Manager:
       Marker Topic: /mkID3
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -255,7 +255,7 @@ Visualization Manager:
       Marker Topic: /mkID4
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -263,7 +263,7 @@ Visualization Manager:
       Marker Topic: /mkID5
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -271,7 +271,7 @@ Visualization Manager:
       Marker Topic: /mkID6
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -279,7 +279,7 @@ Visualization Manager:
       Marker Topic: /mkID7
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -287,7 +287,7 @@ Visualization Manager:
       Marker Topic: /mkID8
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -295,7 +295,7 @@ Visualization Manager:
       Marker Topic: /mkID9
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 96
       Value: true
     - Class: rviz/Marker
@@ -303,7 +303,7 @@ Visualization Manager:
       Marker Topic: /mkID10
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 98
       Value: true
     - Class: rviz/Marker
@@ -311,7 +311,7 @@ Visualization Manager:
       Marker Topic: /mkID11
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -319,7 +319,7 @@ Visualization Manager:
       Marker Topic: /mkID12
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -327,7 +327,7 @@ Visualization Manager:
       Marker Topic: /mkID13
       Name: Marker
       Namespaces:
-        "": true
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
@@ -358,7 +358,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 13.709590911865234
+      Distance: 10.616706848144531
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -366,17 +366,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.1617051213979721
-        Y: 4.158712863922119
-        Z: -2.2171218395233154
+        X: -0.8814144134521484
+        Y: -0.9464517831802368
+        Z: -2.5090889930725098
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.3547965288162231
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      Yaw: 5.4235758781433105
+      Yaw: 3.443575382232666
     Saved: ~
 Window Geometry:
   Displays:
