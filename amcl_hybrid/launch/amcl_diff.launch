@@ -13,27 +13,51 @@
 	<!--3. Launch Rviz -->
 	<node pkg="rviz" type="rviz" name="rviz" args="-d /home/fer/catkin_ws/src/amcl_hybrid/run_amcl/test_amcl.rviz">
 	</node>
+	
+	<!--4. Launch Marker visualizations -->
+    <node pkg="marker_map_creator" type="marker_map_creator.py" name="marker_map_creator" output="screen">
+	<param name= "input_data_folder"   value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/1_input_data/$(arg scenario)/" />
+    <param name= "output_map_path"    value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/2_output_map/$(arg scenario)/" />
+   <param name= "input_depth_bag"              value="/home/fer/.ros/rgbd1_depth_$(arg scenario).bag" />
+   <param name= "input_depth_img_topic"    value="/camera/RGB1/Image" />
+    <param name= "input_gtruth_bag"    value="/home/fer/.ros/groundtruth_path_$(arg scenario).bag" />
+    </node>
+
+	<!--5. Launch Export Data from testing node -->
+	<node pkg="testing_node" type="export_data.py" name="testing_node_export_data" output="screen">
+	<param name="file_name"      value="$(arg scenario)_test$(arg file_num)"/>
+	<param name="scenario"      value="$(arg scenario)"/> <!--este param solo se usa en el script para darle nombre al output folder-->
+	</node>                                                                                       <!--por lo tanto se puede modificar al nombre que se quiera pal folder-->		
 		
-	<!--5. Play odom-gtruth rosbag-->
+	<!--6. Play odom-gtruth rosbag-->
 	<arg name="file1" default="groundtruth_amcl_path_pare"/>
 	<arg name="file2" default="odom5_pare"/>
 	<arg name="path" default="/home/fer/.ros/"/>
 	<node name="gtruth_odom_bagplayer" pkg="rosbag" type="play" output="screen" args="--clock $(arg path)$(arg file1).bag $(arg path)$(arg file2).bag" />
 	
-	<!--6. Play virtual laser rosbag (it has diff timestamps than the odom and gtruth bags, i.e. a different clock, so it needs to be played separetely)-->                                                                    
+	<!--7. Play virtual laser rosbag (it has diff timestamps than the odom and gtruth bags, i.e. a different clock, so it needs to be played separetely)-->                                                                    
 	<arg name="file3" default="virtual_laser_pare"/>                                                                                           
 	<node name="virtual_laser_bagplayer" pkg="rosbag" type="play" output="screen" args="$(arg path)$(arg file3).bag" />		
-	
-	<!--7. Play Image rosbags with necessary delay to synchronize data-->                                                                                                                        
+
+	<!--8. Launch Detector Node-->
+	<node pkg="detector" type="detectorSIFT.py" name="detector" output="screen">
+	<param name="markers_path" value="/home/fer/catkin_ws/src/amcl_hybrid/detector/markers/$(arg scenario)/" />
+	<param name="export_path" value="/home/fer/catkin_ws/src/amcl_hybrid/detector/markers/" />
+	<param name="img_topic"    value="/camera/RGB1/Image" />
+	<param name="detection_msg_publish_topic"    value="/camera_link" />
+	<param name="thresh_bin"    value="bin" />	 <!-- bin or bin_inv -->
+	</node>			
+
+	<!--9. Play Image rosbags -->                                                                                                                        
 	<arg name="file4" default="rgbd1_img_pare"/>                                                        
 	<node name="rgbd1_img_bagplayer" pkg="rosbag" type="play" output="screen" args=" $(arg path)$(arg file4).bag" launch-prefix="bash -c 'sleep 2.176; $0 $@' " />
 
-	<!--8. Run AMCL node to visualize estimated path -->
+	<!--10. Run AMCL node to visualize estimated path -->
 	<node pkg="run_amcl" type="run_amcl" name="run_amcl" output="screen">
 	</node>
 	
-	<!--9. Configue Hybrid parameters maps, tfs and topics  -->  
-    <arg name="markers_file_name" default="pare_markers_map"/>
+	<!--11. Configue Hybrid parameters maps, tfs and topics  -->  
+    <arg name="markers_file_name" default="markers_map_pare_bin_inv"/>
     <arg name="marker_positions_file" default="$(find amcl_hybrid)/maps/$(arg markers_file_name).yml" />
 
     <arg name="cameras_file_name" default="cameras"/>
@@ -54,7 +78,7 @@
     <arg name="initial_pose_a" default="0.0"/>
     <arg name="height_pos_camera_link" default="-0.0001"/> <!-- If you put value -0.0001, this variable will be calculated using tf topic -->
 
-	<!--10. Launch AMCL Hybrid-->  
+	<!--12. Launch AMCL Hybrid-->  
     <node pkg="amcl_hybrid" type="amcl_hybrid" name="amcl_hybrid" respawn="false" output="screen" >
         <param name="initial_pose_x"    value="$(arg initial_pose_x)"/>
         <param name="initial_pose_y"    value="$(arg initial_pose_y)"/>
