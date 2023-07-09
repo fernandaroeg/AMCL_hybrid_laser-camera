@@ -18,24 +18,30 @@ class detector:
     def __init__(self):
         #1. ROS configuration
         self.bridge = CvBridge()
-        self.pub_marker     = rospy.Publisher('detected_markers', messagedet, queue_size=1)
-        self.pub_projection = rospy.Publisher('detector_img', Image, queue_size=1)
+        self.pub_marker           = rospy.Publisher('detected_markers', messagedet, queue_size=1)
+        self.pub_projection      = rospy.Publisher('detector_img', Image, queue_size=1)
         self.pub_num_marker = rospy.Publisher('num_detecte_markers', num_markers, queue_size=10)
-        markers_path = rospy.get_param('/detectorSIFT/markers_path')
        
         #2. Parameters SETUP
-        self.numMarkers     = rospy.get_param('/detectorSIFT/num_markers')
+        markers_path     = rospy.get_param('/detectorSIFT/markers_path')
+        self.export_path = rospy.get_param('/detectorSIFT/export_path')
+        self.thresh_bin   = rospy.get_param('/detectorSIFT/thresh_bin')
         self.corner_colors  = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (0, 255, 255)) #BGR coners
         self.export_img_det = True
         
-        self.export_path    = markers_path
-        
-            #Contour detection parameters
-        self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro, THRESH_BINARY busca objetos claros con fondo oscuro
-            #Rectangle detection parameters minimun width and height for images to loook
+        lst = os.listdir(markers_path)
+        self.numMarkers  = len(lst)
+        #Contour detection parameters
+        if self.thresh_bin == "bin":
+            self.thresh_binary  = cv2.THRESH_BINARY #THRESH_BINARY busca objetos claros con fondo oscuro
+        else:
+            self.thresh_binary  = cv2.THRESH_BINARY_INV #THRESH_BINARY_INV busca objetos oscuros con fondo claro
+        print("threshold binary type set is ", self.thresh_bin)
+            
+        #Rectangle detection parameters minimun width and height for images to loook
         self.min_w_h_image = 10 
-            #Min number of features matching between analyzed rectangle and stored marker to be consider as a detection
-        self.minNumMatches = 8
+        #Min number of features matching between analyzed rectangle and stored marker to be consider as a detection
+        self.minNumMatches = 20
         
         #3. INICIALIZAR SIFT
         self.SIFTdetector=  cv2.ORB_create(
@@ -55,13 +61,14 @@ class detector:
         #4. CREAR LISTA DE MARCADORES A BUSCAR
         self.markers = (list(), list(), list()) #se crea lista3D para almacenar img, keypoints, descriptors de cada uno de los marcadores en folder
         for i in range(0, self.numMarkers):
-            path = str(markers_path + "marker" + str(i) +".png") 
-            print(path)
+            path = str(markers_path + "marker" + str(i) +".bmp") 
             img = cv2.imread(path, 0)
             self.markers[0].append(img)
             kp, des = self.SIFTdetector.detectAndCompute(img, None)
             self.markers[1].append(kp)
             self.markers[2].append(des)   
+            print("path is ", path)
+            print("i es", i, "self.numMarkers es ", self.numMarkers)
             print("para el marker",i," se encontraron kp",len(kp), " y des", len(des))
         print("total images in folder: " + str(len(self.markers[0])))
         
@@ -218,7 +225,8 @@ class detector:
         rectangle = cv2.cvtColor(rectangle, cv2.COLOR_BGR2GRAY)
         kp, des = self.SIFTdetector.detectAndCompute(rectangle, None)
 
-        if len(kp) > 0 and len(des)>25: #len(des)>25 #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
+        #if len(kp) > 0 and len(des)>25: #len(des)>25 #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
+        if len(kp) > 30 and len(des)>60: #len(des)>25 #There must be at least 1 feature to compare and des>20 helps avoiding this error https://stackoverflow.com/questions/25089393/opencv-flannbasedmatcher
             minNumMatches_found = list()
             for i in range(self.numMarkers): #compare rectangle to all the markers stored, logic from:https://docs.opencv.org/3.4/d1/de0/tutorial_py_feature_homography.html         
                 #1. Compute flann matches between rectangle and markers
@@ -240,7 +248,7 @@ class detector:
                 #2. Store good matches that pass the Lowe's ratio test.
                 good_matches = []
                 for m,n in matches_found:
-                    if m.distance < 0.7*n.distance:
+                    if m.distance < 0.6*n.distance:
                         good_matches.append(m)
                         markerID = i
                 print("Filtered num of matches per Lowe's tests is", len(good_matches))
