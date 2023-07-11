@@ -19,5 +19,3 @@ roslaunch testing_node compute_metrics.launch data_path:=/home/fer/.ros/pare/ sc
 roslaunch testing_node compute_metrics.launch data_path:=/home/fer/.ros/pare_depth/ scenario:=pare
 roslaunch testing_node compute_metrics.launch data_path:=/home/fer/.ros/rx2/ scenario:=rx2
 roslaunch testing_node compute_metrics.launch data_path:=/home/fer/.ros/rx2_depth/ scenario:=rx2
-
-
