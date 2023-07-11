@@ -3,12 +3,16 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import rospy
 import os
 
-scenario = "pare"
-path = "/home/fer/Desktop/Pruebas_amcl/params_tunning_fer/"+scenario+"/"
-laser = "Laser"
+path         = rospy.get_param('/testing_node_metrics/data_path')
+scenario = rospy.get_param('/testing_node_metrics/scenario')
+laser = "Virtual Laser"
+print("data path is", path)
 
+#scenario = "pare"
+#path = "/home/fer/Desktop/Pruebas_amcl/params_tunning_fer/"+scenario+"/"
 #path = "/home/fer/Desktop/Pruebas_amcl/params_tunning_fer/"+scenario+"_depth/"
 #laser = "Virtual Laser" 
                 
