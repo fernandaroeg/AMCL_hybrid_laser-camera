@@ -1,9 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="scenario"             default="pare" />
-    <arg name="thresh"                 default="bin" />
     <arg name="delay"                   default="2.176" />
-    <arg name="num_markers"      default="1" />
     <arg name="file_num"      default="0" />
 
 	<!--1. Launch Map-->
@@ -20,7 +18,7 @@
 	
 	<!--4. Launch Marker visualizations -->
     <node pkg="marker_map_creator" type="marker_map_creator.py" name="marker_map_creator" output="screen">
-	<param name= "input_data_folder"   value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/1_input_data/$(arg scenario)/$(arg thresh)/m$(arg num_markers)/" />
+	<param name= "input_data_folder"   value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/1_input_data/$(arg scenario)/" />
     <param name= "output_map_path"    value="/home/fer/catkin_ws/src/amcl_hybrid/marker_map_creator/2_output_map/$(arg scenario)/" />
    <param name= "input_depth_bag"              value="/home/fer/.ros/rgbd1_depth_$(arg scenario).bag" />
    <param name= "input_depth_img_topic"    value="/camera/RGB1/Image" />
@@ -30,7 +28,7 @@
 	<!--5. Launch Export Data from testing node -->
 	<node pkg="testing_node" type="export_data.py" name="testing_node_export_data" output="screen">
 	<param name="file_name"      value="$(arg scenario)_test$(arg file_num)"/>
-	<param name="scenario"      value="$(arg scenario)/$(arg thresh)/m$(arg num_markers)"/> <!--este param solo se usa en el script para darle nombre al output folder-->
+	<param name="scenario"      value="$(arg scenario)/"/> <!--este param solo se usa en el script para darle nombre al output folder-->
 	</node>                                                                                       <!--por lo tanto se puede modificar al nombre que se quiera pal folder-->		
 		
 	<!--6. Play odom-gtruth rosbag-->
@@ -69,7 +67,7 @@
 	</node>
 	
 	<!--11. Configue Hybrid parameters maps, tfs and topics  -->  
-    <arg name="markers_file_name" default="markers_map_$(arg scenario)_$(arg thresh)_m$(arg num_markers)"/>
+    <arg name="markers_file_name" default="markers_map_$(arg scenario)_all"/>
     <arg name="marker_positions_file" default="$(find amcl_hybrid)/maps/$(arg markers_file_name).yml" />
 
     <arg name="cameras_file_name" default="cameras"/>
