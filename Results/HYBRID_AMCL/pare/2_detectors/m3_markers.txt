@@ -1,0 +1,5 @@
+cuadro tele
+cuadro pasillo maguey 
+(quite el cuadro de flor azul en el pasillo para esta prueba)
+cuadro niño
+reconocimiento

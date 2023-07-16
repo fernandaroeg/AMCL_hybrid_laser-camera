@@ -1,0 +1,4 @@
+cuadro tele
+2 cuadros pasillo
+cuadro niño
+reconocimiento
