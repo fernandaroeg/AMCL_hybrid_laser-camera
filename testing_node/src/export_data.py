@@ -39,7 +39,8 @@ class ExportPosesTxt:
 
         quat_amcl = (amcl_pose.pose.pose.orientation.x, amcl_pose.pose.pose.orientation.y, amcl_pose.pose.pose.orientation.z, amcl_pose.pose.pose.orientation.w)
         euler = euler_from_quaternion(quat_amcl) 
-        th_amcl = (euler[2] * 180)/math.pi
+        #th_amcl = (euler[2] * 180)/math.pi #aqui lo convierto a grados, pero es mejor dejarlo en radianes
+        th_amcl = euler
         self.file_amcl.write(str(th_amcl)+",")
         
         self.file_amcl.write(str(amcl_pose.pose.covariance[0]) +",")
