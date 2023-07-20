@@ -45,9 +45,9 @@ def create_marker(x,y,z, t, frame, color):
     marker.type = 2
     marker.id = 0
     # Set the scale of the marker
-    marker.scale.x = 0.1
-    marker.scale.y = 0.1
-    marker.scale.z = 0.1
+    marker.scale.x = 0.2
+    marker.scale.y = 0.2
+    marker.scale.z = 0.2
     # Set the color
     marker.color = color
     # Set the pose of the marker, primero convierto y luego paso aquí los datos convertidos 
@@ -67,9 +67,9 @@ def create_marker_text(x,y,z, t, frame, color, text):
     marker.header.stamp = t
     marker.type=Marker.TEXT_VIEW_FACING
     marker.id=0
-    marker.scale.x = 0.1
-    marker.scale.y = 0.1
-    marker.scale.z = 0.1
+    marker.scale.x = 0.4
+    marker.scale.y = 0.4
+    marker.scale.z = 0.4
     marker.color = color
     marker.pose.position.x = x
     marker.pose.position.y = y
@@ -187,6 +187,7 @@ def main(args):
         publishers["marker3_pub_"+str(i)]   = rospy.Publisher("/mk3_"+str(i), Marker,  queue_size = 2, latch=True)
         publishers["marker4_pub_"+str(i)]   = rospy.Publisher("/mk4_"+str(i), Marker,  queue_size = 2, latch=True)
         publishers["markerID_pub_"+str(i)] = rospy.Publisher("/mkID"+str(i),Marker, queue_size = 2, latch=True)
+        publishers["markerIDm_pub_"+str(i)] = rospy.Publisher("/mkIDm"+str(i),Marker, queue_size = 2, latch=True)
         publishers["br_rgbd_"+str(i)]  = tf2_ros.StaticTransformBroadcaster()
         publishers["br_base_"+str(i)] = tf2_ros.StaticTransformBroadcaster()
         listener = tf.TransformListener()
@@ -272,17 +273,18 @@ def main(args):
                         print("EXTRACTING BASE_LINK FRAME AND POSE: base_link(gtruth) pose in this moment:", gtruth_tf.header.frame_id, gtruth_tf.child_frame_id, gtruth_tf.transform.translation.x, gtruth_tf.transform.translation.y, gtruth_tf.transform.translation.z, "rotation: ", yaw)
                        
                         #10. Convert points to marker msg 
-                        pt1_pub   = create_marker(pt1_xyz[0], pt1_xyz[1], pt1_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 0, 0, 0.5)) #red   #rgbd_tf.child_frame_id[1:] fix to take '/' from beggining of tf
-                        pt2_pub   = create_marker(pt2_xyz[0], pt2_xyz[1], pt2_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(0, 1, 0, 0.5))#green
-                        pt3_pub   = create_marker(pt3_xyz[0], pt3_xyz[1], pt3_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(0, 0, 1, 0.5))#blue
-                        pt4_pub   = create_marker(pt4_xyz[0], pt4_xyz[1], pt4_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 1, 0, 0.5))#yellow
-                        ptID_pub = create_marker_text(center_xyz[0], center_xyz[1], center_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 0, 0, 5), "ID"+str(i))#yellow
+                        pt1_pub      = create_marker(pt1_xyz[0], pt1_xyz[1], pt1_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 0, 0, 0.5)) #red   #rgbd_tf.child_frame_id[1:] fix to take '/' from beggining of tf
+                        pt2_pub      = create_marker(pt2_xyz[0], pt2_xyz[1], pt2_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(0, 1, 0, 0.5))#green
+                        pt3_pub      = create_marker(pt3_xyz[0], pt3_xyz[1], pt3_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(0, 0, 1, 0.5))#blue
+                        pt4_pub      = create_marker(pt4_xyz[0], pt4_xyz[1], pt4_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 1, 0, 0.5))#yellow
+                        ptID_pub    = create_marker_text(center_xyz[0]+0.3, center_xyz[1]+0.2, center_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 0, 0, 5), "ID"+str(i))#red
+                        ptIDm_pub = create_marker(center_xyz[0], center_xyz[1], center_xyz[2], time, rgbd_tf.child_frame_id[1:]+str(i), ColorRGBA(1, 0, 0, 5))#red
                         
                         tf_rgb1   = create_static_tf(  rgbd_tf.transform.translation.x,   rgbd_tf.transform.translation.y,   rgbd_tf.transform.translation.z ,  rgbd_tf.transform.rotation, time,   rgbd_tf.header.frame_id+str(i),   rgbd_tf.child_frame_id+str(i))
                         tf_gtruth = create_static_tf(gtruth_tf.transform.translation.x, gtruth_tf.transform.translation.y, gtruth_tf.transform.translation.z ,gtruth_tf.transform.rotation, time, gtruth_tf.header.frame_id, gtruth_tf.child_frame_id+str(i))
                               
                         #10. Append all data in a list of dictionaries 
-                        marker_rviz = {'tf_rgb':tf_rgb1, 'tf_gtruth':tf_gtruth, 'ptID_pub':ptID_pub, 'pt1_pub':pt1_pub, 'pt2_pub':pt2_pub, 'pt3_pub':pt3_pub, 'pt4_pub':pt4_pub}
+                        marker_rviz = {'tf_rgb':tf_rgb1, 'tf_gtruth':tf_gtruth, 'ptID_pub':ptID_pub, 'ptIDm_pub':ptIDm_pub, 'pt1_pub':pt1_pub, 'pt2_pub':pt2_pub, 'pt3_pub':pt3_pub, 'pt4_pub':pt4_pub}
                         markers_data_rviz.append(marker_rviz)  
                         #print("el marker del punto 1 es ", pt1_pub.header.frame_id, pt1_pub.pose.position.x, pt1_pub.pose.position.y, pt1_pub.pose.position.z, pt1_pub.pose.orientation.x, pt1_pub.pose.orientation.y,pt1_pub.pose.orientation.z,pt1_pub.pose.orientation.w)                                           
                         markers_center_xyz.append(center_xyz)                        
@@ -301,7 +303,8 @@ def main(args):
             publishers_list[i]["marker2_pub_"+str(i)].publish(markers_data_rviz[i]["pt2_pub"])    
             publishers_list[i]["marker3_pub_"+str(i)].publish(markers_data_rviz[i]["pt3_pub"])    
             publishers_list[i]["marker4_pub_"+str(i)].publish(markers_data_rviz[i]["pt4_pub"])    
-            publishers_list[i]["markerID_pub_"+str(i)].publish(markers_data_rviz[i]["ptID_pub"])  
+            publishers_list[i]["markerID_pub_"+str(i)].publish(markers_data_rviz[i]["ptID_pub"])
+            publishers_list[i]["markerIDm_pub_"+str(i)].publish(markers_data_rviz[i]["ptIDm_pub"])             
             publishers_list[i]["br_rgbd_"+str(i)] .sendTransform(markers_data_rviz[i]["tf_rgb"])  
             publishers_list[i]["br_base_"+str(i)].sendTransform(markers_data_rviz[i]["tf_gtruth"]) 
             try:
