@@ -6,6 +6,15 @@ import numpy as np
 import rospy
 import os
 
+def ang_rango(ang):
+    if ang > np.pi:
+        ang = ang - 2 * np.pi
+        return ang_rango(ang)  # Return the result of the recursive call
+    if ang < -np.pi:
+        ang = ang + 2 * np.pi
+        return ang_rango(ang)  # Return the result of the recursive call
+    return ang
+
 path         = rospy.get_param('/testing_node_metrics/data_path')
 scenario = rospy.get_param('/testing_node_metrics/scenario')
 laser = "Virtual Laser"
@@ -57,11 +66,32 @@ for file in range(1,num_files+1):
                 break
 
     df_ate = df_ate[(~df_ate.isnull()).all(axis=1)]
+
+    #convertir angulos a radianes
+    df_ate["Thgt"] = df_ate["Thgt"] * (np.pi/180)
+    df_ate["Thacml"] = df_ate["Thacml"] * (np.pi/180)
+    
+    #normalizar angulo entre intervalo [-pi,pi]
+    for i in range(0,len(df_amcl)):
+        df_ate["Thgt"][i]   = ang_rango(df_ate["Thgt"][i])
+        df_ate["Thacml"][i] = ang_rango(df_ate["Thacml"][i])
+    
+    #normalizar angulo entre intervalo [-pi,pi]
+    for i in range(0,len(df_amcl)):
+        if df_ate["Thgt"][i] < -np.pi:
+            ang=2*PI+ang;
+            AngRango(ang);
+        if df_ate["Thgt"][i] > np.pi:
+            ang=ang-2*PI;
+            AngRango(ang);
     
     #Compute pose errors x_error, y_error, th_error, traj_error
-    df_ate["x_error"]  = df_ate["Xgt"]   -df_ate["Xamcl"]  #############################################3
+    df_ate["x_error"]  = df_ate["Xgt"]   -df_ate["Xamcl"]  
     df_ate["y_error"]  = df_ate["Ygt"]   -df_ate["Yamcl"]  
     df_ate["th_error"] = df_ate["Thgt"] -df_ate["Thacml"]
+    
+    for i in range(0,len(df_amcl)):
+        df_ate["th_error"][i]   = ang_rango(df_ate["th_error"][i])
     
     df_ate["traj_error"] =(np.sqrt( (df_ate["x_error"]*df_ate["x_error"]) + (df_ate["y_error"]*df_ate["y_error"]) ) )
     df_ate["traj_error2"]=df_ate["traj_error"] * df_ate["traj_error"]
@@ -120,12 +150,12 @@ for file in range(1,num_files+1):
     ax[1,0].set_title("Pose Error in Y")
     ax[2,0].plot( df_ate["th_error"]) 
     ax[2,0].set_title("Pose Error in Th")
-    ax[0,1].plot( df_ate["Xamcl_cov"])  
-    ax[0,1].set_title("AMCL cov in X")
-    ax[1,1].plot( df_ate["Yamcl_cov"]) 
-    ax[1,1].set_title("AMCL cov in Y")
-    ax[2,1].plot( df_ate["Thamcl_cov"]) 
-    ax[2,1].set_title("AMCL cov in Th")
+    ax[0,1].plot( np.sqrt(df_ate["Xamcl_cov"]))  
+    ax[0,1].set_title("Std dev in X")
+    ax[1,1].plot( np.sqrt(df_ate["Yamcl_cov"]))
+    ax[1,1].set_title("Std dev  in Y")
+    ax[2,1].plot( np.sqrt(df_ate["Thamcl_cov"])) 
+    ax[2,1].set_title("Std dev  in Th")
     
     fig.savefig(path+"amcl_test"+str(file)+"_pose_error_cov.png")
     ate_all.append([ate])
